@@ -1,0 +1,58 @@
+@import "tailwindcss";
+
+/* MANA SHU QATORNI QO'SHING (Tailwind v4 uchun maxsus dark mode varianti) */
+@custom-variant dark (&:where(.dark, .dark *));
+
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+/* ... qolgan eski animatsiya kodlaringiz turaversin ... */
+
+/* Orqa fondagi ranglarning sekin suzish animatsiyasi */
+@keyframes floatAnimation {
+  0% { transform: translate(0px, 0px) scale(1); }
+  50% { transform: translate(40px, -60px) scale(1.15); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+@keyframes floatAnimation2 {
+  0% { transform: translate(0px, 0px) scale(1); }
+  50% { transform: translate(-50px, 50px) scale(1.1); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+.bg-blur-1 {
+  animation: floatAnimation 12s infinite ease-in-out;
+}
+
+.bg-blur-2 {
+  animation: floatAnimation2 15s infinite ease-in-out;
+}
+
+/* Taymerning qizarib-o'chish (Pulse) effekti */
+@keyframes criticalPulse {
+  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  70% { box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+.timer-critical {
+  animation: criticalPulse 1.5s infinite;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
