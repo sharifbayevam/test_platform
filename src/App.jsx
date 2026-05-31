@@ -1,623 +1,560 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Play, CheckCircle, User, Award, Clock, LogOut, BookOpen, Lock } from 'lucide-react';
+import { Plus, Trash2, Play, CheckCircle, User, Award, Clock, LogOut, BookOpen, Lock, Edit2, FileText, Users, Key, AlertCircle, ArrowRight, Download, UserPlus, LogIn } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import './App.css';
-
-const defaultQuizzes = [
-  {
-    id: '1',
-    title: 'Matematika - Chorak Yakuniy Testi',
-    description: 'Kombinatorika va ehtimollar nazariyasi asoslari bo‘yicha chuqurlashtirilgan savollar.',
-    duration: 20,
-    questions: [
-      { id: 'q1', text: '5 ta kitobni javonga necha xil usulda joylashtirish mumkin?', options: ['120', '60', '24', '100'], correctAnswer: 0 },
-      { id: 'q2', text: 'Ikkita kubik bir vaqtda tashlanganda, ochkolar yig\'indisi 7 bo\'lish ehtimolini toping.', options: ['1/6', '1/12', '5/36', '1/4'], correctAnswer: 0 }
-    ]
-  }
-];
-
-const shuffleQuiz = (quiz) => {
-  if (!quiz) return null;
-  const shuffledQuestions = quiz.questions.map((q) => {
-    const indexedOptions = q.options.map((opt, idx) => ({ text: opt, isCorrect: idx === q.correctAnswer }));
-    const shuffledOptions = [...indexedOptions].sort(() => Math.random() - 0.5);
-    return {
-      ...q,
-      options: shuffledOptions.map(o => o.text),
-      correctAnswer: shuffledOptions.findIndex(o => o.isCorrect)
-    };
-  }).sort(() => Math.random() - 0.5);
-  return { ...quiz, questions: shuffledQuestions };
-};
+import Tetris from '../Tetris';
+import * as XLSX from 'xlsx';
 
 export default function App() {
-  const [darkMode, setDarkMode] = useState(() => {
-    const saved = localStorage.getItem('theme');
-    return saved === 'dark';
-  });
-  const [role, setRole] = useState(null);
+  const [darkMode, setDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
+  const [role, setRole] = useState(null); 
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [activeTab, setActiveTab] = useState('umumiy'); // O'qituvchi dashboard tablari uchun state
-
-  const [studentName, setStudentName] = useState('');
-  const [teacherLogin, setTeacherLogin] = useState('');
-  const [teacherPassword, setTeacherPassword] = useState('');
+  const [authMode, setAuthMode] = useState('login'); 
+  const [activeTab, setActiveTab] = useState('umumiy'); 
+  
+  // Auth States
+  const [regName, setRegName] = useState('');
+  const [inputLogin, setInputLogin] = useState('');
+  const [inputPassword, setInputPassword] = useState('');
   const [authError, setAuthError] = useState('');
+  
+  // Sessiyalar
+  const [currentTeacher, setCurrentTeacher] = useState(null);
+  const [currentStudent, setCurrentStudent] = useState(null);
 
-  const [savedTeacher, setSavedTeacher] = useState(() => JSON.parse(localStorage.getItem('edu_teacher')) || null);
-  const [quizzes, setQuizzes] = useState(() => JSON.parse(localStorage.getItem('edu_quizzes')) || defaultQuizzes);
+  // Mahalliy Server xotirasi (LocalStorage)
+  const [teachers, setTeachers] = useState(() => JSON.parse(localStorage.getItem('edu_teachers')) || []);
+  const [quizzes, setQuizzes] = useState(() => JSON.parse(localStorage.getItem('edu_quizzes')) || []);
+  const [allowedStudents, setAllowedStudents] = useState(() => JSON.parse(localStorage.getItem('edu_students')) || []);
   const [results, setResults] = useState(() => JSON.parse(localStorage.getItem('edu_results')) || []);
 
+  // Quiz Engine States
   const [currentQuiz, setCurrentQuiz] = useState(null);
-  const [quizState, setQuizState] = useState('list');
+  const [quizState, setQuizState] = useState('list'); 
   const [answers, setAnswers] = useState({});
   const [timeLeft, setTimeLeft] = useState(0);
-  const [score, setScore] = useState(0);
+  const [quizStartTime, setQuizStartTime] = useState(null);
+  const [cheatCount, setCheatCount] = useState(0);
+  const [latestScore, setLatestScore] = useState({ score: 0, total: 0, percent: 0, timeSpent: '' });
 
+  // Konstruktor formasi
+  const [editingQuiz, setEditingQuiz] = useState(null);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newDuration, setNewDuration] = useState(15);
   const [newQuestions, setNewQuestions] = useState([{ text: '', options: ['', '', '', ''], correctAnswer: 0 }]);
 
+  const [studName, setStudName] = useState('');
+  const [studUsername, setStudUsername] = useState('');
+  const [studPassword, setStudPassword] = useState('');
+
+  // Variantlar harflari massivi
+  const optionLetters = ['A', 'B', 'C', 'D'];
+
   useEffect(() => {
     const root = document.documentElement;
-    if (darkMode) {
-      root.className = 'dark';
-      localStorage.setItem('theme', 'dark');
-    } else {
-      root.className = '';
-      localStorage.setItem('theme', 'light');
-    }
+    if (darkMode) { root.classList.add('dark'); localStorage.setItem('theme', 'dark'); }
+    else { root.classList.remove('dark'); localStorage.setItem('theme', 'light'); }
   }, [darkMode]);
 
+  useEffect(() => { localStorage.setItem('edu_teachers', JSON.stringify(teachers)); }, [teachers]);
   useEffect(() => { localStorage.setItem('edu_quizzes', JSON.stringify(quizzes)); }, [quizzes]);
+  useEffect(() => { localStorage.setItem('edu_students', JSON.stringify(allowedStudents)); }, [allowedStudents]);
   useEffect(() => { localStorage.setItem('edu_results', JSON.stringify(results)); }, [results]);
 
+  // JONLI TAYMER (TIMER) KOD QISMI
   useEffect(() => {
     if (quizState !== 'playing' || timeLeft <= 0) {
-      if (timeLeft === 0 && quizState === 'playing') handleFinishQuiz();
+      if (timeLeft === 0 && quizState === 'playing') {
+        handleFinishQuiz();
+      }
       return;
     }
-    const timer = setInterval(() => setTimeLeft(t => t - 1), 1000);
+    const timer = setInterval(() => {
+      setTimeLeft(t => t - 1);
+    }, 1000);
     return () => clearInterval(timer);
   }, [timeLeft, quizState]);
 
-  const handleTeacherRegister = (e) => {
+  // Anti-cheat o'g'rilikka qarshi nazorat
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden && quizState === 'playing') {
+        setCheatCount(prev => prev + 1);
+        alert("Ogohlantirish! Boshqa oynaga o'tish taqiqlanadi. Natijalarda bu qayd etiladi!");
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [quizState]);
+
+  const handleAuthSubmit = (e) => {
     e.preventDefault();
-    const login = teacherLogin.trim().toLowerCase();
-    const password = teacherPassword.trim();
-    if (login.length < 3 || password.length < 4) {
-      setAuthError('Login kamida 3 ta, parol kamida 4 ta belgidan iborat bo‘lsin!');
+    setAuthError('');
+    const log = inputLogin.trim();
+    const pass = inputPassword.trim();
+
+    if (role === 'teacher') {
+      if (authMode === 'register') {
+        if (teachers.some(t => t.username === log)) {
+          setAuthError('Bu login band! Boshqasini tanlang.');
+          return;
+        }
+        const newTech = { id: 't_' + Date.now(), name: regName, username: log, password: pass };
+        setTeachers([...teachers, newTech]);
+        setCurrentTeacher(newTech);
+        setIsLoggedIn(true);
+        setRegName(''); setInputLogin(''); setInputPassword('');
+      } else {
+        const teacher = teachers.find(t => t.username === log && t.password === pass);
+        if (teacher) {
+          setCurrentTeacher(teacher);
+          setIsLoggedIn(true);
+          setInputLogin(''); setInputPassword('');
+        } else {
+          setAuthError('O‘qituvchi logini yoki paroli xato!');
+        }
+      }
+    } else {
+      const student = allowedStudents.find(s => s.username === log && s.password === pass);
+      if (student) {
+        setCurrentStudent(student);
+        setIsLoggedIn(true);
+        setInputLogin(''); setInputPassword('');
+      } else {
+        setAuthError('Bunday logindagi o\'quvchi tizimda yo\'q!');
+      }
+    }
+  };
+
+  const myQuizzes = quizzes.filter(q => q.teacherId === currentTeacher?.id);
+  const myStudents = allowedStudents.filter(s => s.teacherId === currentTeacher?.id);
+  const myResults = results.filter(r => r.teacherId === currentTeacher?.id);
+
+  const handleAddStudent = (e) => {
+    e.preventDefault();
+    if (!studName || !studUsername || !studPassword) return;
+    if (allowedStudents.some(s => s.username === studUsername.trim())) {
+      alert("Bu o'quvchi logini bazada mavjud!");
       return;
     }
-    const newTeacherData = { login, password };
-    localStorage.setItem('edu_teacher', JSON.stringify(newTeacherData));
-    setSavedTeacher(newTeacherData);
-    setIsLoggedIn(true);
-    setAuthError('');
+    setAllowedStudents([...allowedStudents, { 
+      id: 's_' + Date.now(), teacherId: currentTeacher.id, name: studName, username: studUsername.trim(), password: studPassword.trim() 
+    }]);
+    setStudName(''); setStudUsername(''); setStudPassword('');
   };
 
-  const handleTeacherLogin = (e) => {
+  const handleCreateOrUpdateQuiz = (e) => {
     e.preventDefault();
-    if (savedTeacher && teacherLogin.trim().toLowerCase() === savedTeacher.login && teacherPassword.trim() === savedTeacher.password) {
-      setIsLoggedIn(true);
-      setAuthError('');
-    } else {
-      setAuthError('Login yoki parol xato!');
-    }
-  };
+    if (!newTitle || !newDesc) return;
 
-  const handleStudentLogin = (e) => {
-    e.preventDefault();
-    if (studentName.trim().length >= 3) {
-      setIsLoggedIn(true);
-      setAuthError('');
+    if (editingQuiz) {
+      setQuizzes(quizzes.map(q => q.id === editingQuiz.id ? { ...q, title: newTitle, description: newDesc, duration: parseInt(newDuration), questions: newQuestions } : q));
+      setEditingQuiz(null);
     } else {
-      setAuthError('Iltimos, ism va familiyangizni kiriting!');
+      setQuizzes([...quizzes, { 
+        id: 'q_' + Date.now(), teacherId: currentTeacher.id, title: newTitle, description: newDesc, duration: parseInt(newDuration), questions: newQuestions 
+      }]);
     }
-  };
-
-  const handleStartQuiz = (quiz) => {
-    setCurrentQuiz(shuffleQuiz(quiz));
-    setTimeLeft(quiz.duration * 60);
-    setAnswers({});
-    setQuizState('playing');
+    setNewTitle(''); setNewDesc(''); setNewDuration(15);
+    setNewQuestions([{ text: '', options: ['', '', '', ''], correctAnswer: 0 }]);
+    setActiveTab('savollar');
   };
 
   const handleFinishQuiz = () => {
     let rightAnswers = 0;
-    currentQuiz.questions.forEach((q, index) => {
-      if (answers[index] === q.correctAnswer) rightAnswers++;
-    });
-    setScore(rightAnswers);
-    setQuizState('result');
+    currentQuiz.questions.forEach((q, idx) => { if (answers[idx] === q.correctAnswer) rightAnswers++; });
+    const diffMs = Date.now() - quizStartTime;
+    const timeSpentStr = `${Math.floor(diffMs / 60000)} daqiqa, ${Math.floor((diffMs % 60000) / 1000)} soniya`;
+    const percent = Math.round((rightAnswers / currentQuiz.questions.length) * 100);
+    
+    setLatestScore({ score: rightAnswers, total: currentQuiz.questions.length, percent, timeSpent: timeSpentStr });
 
-    const newResult = {
-      id: Date.now().toString(),
-      studentName: studentName,
+    setResults([{
+      id: 'res_' + Date.now(),
+      teacherId: currentQuiz.teacherId,
+      studentName: currentStudent.name,
       quizTitle: currentQuiz.title,
       score: rightAnswers,
       totalQuestions: currentQuiz.questions.length,
-      percent: Math.round((rightAnswers / currentQuiz.questions.length) * 100),
-      date: new Date().toLocaleTimeString() + ' ' + new Date().toLocaleDateString()
-    };
-    setResults([newResult, ...results]);
+      percent,
+      timeSpent: timeSpentStr,
+      cheats: cheatCount,
+      date: new Date().toLocaleString()
+    }, ...results]);
+    setQuizState('result');
   };
 
-  const handleCreateQuiz = (e) => {
-    e.preventDefault();
-    if (!newTitle || !newDesc) return;
-    const created = {
-      id: Date.now().toString(),
-      title: newTitle,
-      description: newDesc,
-      duration: parseInt(newDuration),
-      questions: newQuestions.map((q, i) => ({ ...q, id: `nq-${Date.now()}-${i}` }))
-    };
-    setQuizzes([...quizzes, created]);
-    setNewTitle(''); setNewDesc(''); setNewDuration(15);
-    setNewQuestions([{ text: '', options: ['', '', '', ''], correctAnswer: 0 }]);
-    setActiveTab('savollar'); // Test yaratilgach ro'yxat oynasiga o'tkazish
+  const exportResultsToExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(myResults.map(r => ({
+      'O\'quvchi Ismi': r.studentName,
+      'Imtihon Fani': r.quizTitle,
+      'Sarflangan Vaqt': r.timeSpent,
+      'To\'g\'ri Javoblar': `${r.score}/${r.totalQuestions}`,
+      'Foiz %': `${r.percent}%`,
+      'Oynadan chiqishlar': r.cheats,
+      'Sana': r.date
+    })));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Natijalar");
+    XLSX.writeFile(workbook, `${currentTeacher.name}_Natijalar.xlsx`);
+  };
+
+  const startEditQuiz = (quiz) => {
+    setEditingQuiz(quiz);
+    setNewTitle(quiz.title);
+    setNewDesc(quiz.description);
+    setNewDuration(quiz.duration);
+    setNewQuestions(quiz.questions);
+    setActiveTab('yaratish');
   };
 
   const styles = {
-    bg: darkMode ? '#0b1329' : '#f8fafc',
-    text: darkMode ? '#ffffff' : '#0f172a',
-    textMuted: darkMode ? '#94a3b8' : '#475569',
-    cardBg: darkMode ? '#1e293b' : '#ffffff',
-    cardBorder: darkMode ? '1px solid #334155' : '1px solid #e2e8f0',
-    headerBg: darkMode ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255, 255, 255, 0.9)',
-    inputBg: darkMode ? '#334155' : '#ffffff',
-    shadow: darkMode ? '0 4px 20px rgba(0, 0, 0, 0.4)' : '0 10px 30px rgba(148, 163, 184, 0.15)',
+    bg: darkMode ? 'linear-gradient(135deg, #090d16 0%, #111827 100%)' : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
+    card: darkMode ? 'bg-slate-900/90 border border-slate-800/80 shadow-2xl backdrop-blur-md' : 'bg-white border border-slate-200 shadow-lg backdrop-blur-md',
+    text: darkMode ? 'text-slate-100' : 'text-slate-900',
+    muted: darkMode ? 'text-slate-400' : 'text-slate-600',
+    input: darkMode ? 'bg-slate-850 border-slate-700 text-white focus:ring-2 focus:ring-indigo-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:ring-2 focus:ring-indigo-600',
   };
 
   return (
-    <div style={{ backgroundColor: styles.bg, color: styles.text, minHeight: '100vh', transition: 'all 0.3s' }} className="w-full relative overflow-hidden">
+    <div style={{ background: styles.bg }} className="w-full min-h-screen font-sans transition-all duration-300 pb-12 text-xs">
+      
+      {/* HEADER */}
+      <header className="sticky top-0 z-50 w-full bg-slate-900/80 backdrop-blur-md border-b border-white/10 px-6 py-4 flex items-center justify-between text-white">
+        <div className="flex items-center gap-3 cursor-pointer" onClick={() => { if(isLoggedIn) setQuizState('list'); }}>
+          <div className="p-2 bg-indigo-600 rounded-xl text-white"><BookOpen size={20} /></div>
+          <div>
+            <h1 className="text-lg font-black tracking-wider">EDU-CRM PLATFORM</h1>
+            {isLoggedIn && <span className="text-[10px] text-emerald-400 font-bold">● {role === 'teacher' ? `Ustoz: ${currentTeacher?.name}` : `O'quvchi: ${currentStudent?.name}`}</span>}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setDarkMode(!darkMode)} className="px-3 py-2 bg-white/10 rounded-lg font-bold hover:bg-white/20 transition-all cursor-pointer">
+            {darkMode ? '☀️ Light' : '🌙 Dark'}
+          </button>
+          {isLoggedIn && (
+            <button onClick={() => { setRole(null); setIsLoggedIn(false); setQuizState('list'); setCurrentTeacher(null); setCurrentStudent(null); setAuthMode('login'); }} className="px-3 py-2 bg-rose-600 text-white font-bold rounded-lg hover:bg-rose-700 transition-all cursor-pointer">
+              Chiqish
+            </button>
+          )}
+        </div>
+      </header>
+      
 
-      <div className="absolute top-[-10%] left-[-10%] w-[600px] h-[600px] rounded-full filter blur-[120px] pointer-events-none opacity-30 bg-indigo-500"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-[700px] h-[700px] rounded-full filter blur-[140px] pointer-events-none opacity-20 bg-emerald-500"></div>
-
-      <div className="relative flex flex-col min-h-screen z-10 w-full">
-
-        <header style={{ backgroundColor: styles.headerBg, borderBottom: styles.cardBorder }} className="backdrop-blur-xl sticky top-0 shadow-sm transition-all z-50">
-          <div className="max-w-6xl mx-auto px-4 py-3.5 flex items-center justify-between">
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => { if (isLoggedIn && quizState === 'list') setQuizState('list'); }}>
-              <div
-                style={{
-                  backgroundColor: darkMode ? '#f8f5f5' : '#0a3db3',
-                  boxShadow: styles.shadow
-                }}
-                className="p-2.5 rounded-2xl transition-all duration-300 flex items-center justify-center"
-              >
-                <BookOpen
-                  size={22}
-                  style={{
-                    color: darkMode ? '#110cb5' : '#ffffff'
-                  }}
-                  className="transition-colors duration-300"
-                />
+      <main className="max-w-6xl mx-auto px-4 mt-6">
+        <AnimatePresence mode="wait">
+          
+          {/* ROL TANLASH */}
+          {!role && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl mx-auto text-center py-16 space-y-6">
+              <h2 className={`text-3xl font-black ${styles.text}`}>LMS & Imtihon Boshqaruv Tizimi</h2>
+              <p className={styles.muted}>Xavfsiz va shaxsiy login parollarga asoslangan o'quv platformasi.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div onClick={() => { setRole('teacher'); setAuthMode('login'); }} className={`p-6 rounded-2xl cursor-pointer text-left ${styles.card} hover:border-indigo-500 transition-all`}>
+                  <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white mb-4"><Users size={20}/></div>
+                  <h3 className={`font-bold text-sm mb-1 ${styles.text}`}>O‘qituvchi Kabineti</h3>
+                  <p className={styles.muted}>O'z parolingizni qo'yib kirish, testlar va o'quvchilar qo'shish.</p>
+                </div>
+                <div onClick={() => setRole('student')} className={`p-6 rounded-2xl cursor-pointer text-left ${styles.card} hover:border-emerald-500 transition-all`}>
+                  <div className="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center text-white mb-4"><Award size={20}/></div>
+                  <h3 className={`font-bold text-sm mb-1 ${styles.text}`}>O‘quvchi Maydoni</h3>
+                  <p className={styles.muted}>Ustoz bergan maxsus login orqali kirib vaqtli testlarni topshirish.</p>
+                </div>
               </div>
-              <div>
-                <h1
-                  style={{
-                    color: darkMode ? '#ffffff' : '#0f172a' 
-                  }}
-                  className="text-lg font-black tracking-tight transition-colors duration-300"
-                >
-                  Edu Test Platforma
-                </h1>
-                {isLoggedIn && (
-                  <p className="text-[11px] font-bold text-emerald-600">
-                    {role === 'student' ? `O‘quvchi: ${studentName}` : `Ustoz: ${savedTeacher?.login}`}
-                  </p>
+            </motion.div>
+          )}
+
+          {/* DYNAMIC AUTH */}
+          {role && !isLoggedIn && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`max-w-sm mx-auto p-6 rounded-2xl mt-12 ${styles.card}`}>
+              <form onSubmit={handleAuthSubmit} className="space-y-4">
+                <h3 className={`text-lg font-bold text-center ${styles.text}`}>
+                  {role === 'teacher' ? (authMode === 'login' ? 'O‘qituvchi Avtorizatsiyasi' : 'O‘qituvchi Ro‘yxatdan o‘tishi') : 'O\'quvchi Tizimga Kirishi'}
+                </h3>
+                
+                {authError && <p className="text-rose-500 font-bold bg-rose-500/10 p-2 rounded-lg">{authError}</p>}
+                
+                {role === 'teacher' && authMode === 'register' && (
+                  <div>
+                    <label className={`block mb-1 font-bold ${styles.text}`}>F.I.O (Ism Familiya)</label>
+                    <input type="text" required placeholder="Masalan: Sharifbayeva Hosiyat" value={regName} onChange={e => setRegName(e.target.value)} className={`w-full p-2.5 rounded-xl border focus:outline-none ${styles.input}`} />
+                  </div>
                 )}
-              </div>
-            </div>
 
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setDarkMode(!darkMode)}
-                style={{ backgroundColor: darkMode ? '#6c9dde' : '#7a7b7c', color: styles.text, border: styles.cardBorder, cursor:'pointer' }}
-                className="p-2.5 rounded-xl font-bold text-xs hover:scale-105 active:scale-95 transition-all shadow-sm flex items-center gap-1.5"
-              >
-                {darkMode ? '☀️Light' : '🌙Dark'}
-              </button>
-
-              {role && (
-                <button onClick={() => { setRole(null); setIsLoggedIn(false); setQuizState('list'); }} style={{ backgroundColor: darkMode ? '#334155' : '#c9d1dc', color: styles.text }} className="flex items-center gap-1.5 text-xs font-bold px-3 py-2.5 rounded-xl transition-all">
-                  <LogOut size={14} /> Chiqish
+                <div>
+                  <label className={`block mb-1 font-bold ${styles.text}`}>Foydalanuvchi logini</label>
+                  <input type="text" required placeholder="Login..." value={inputLogin} onChange={e => setInputLogin(e.target.value)} className={`w-full p-2.5 rounded-xl border focus:outline-none ${styles.input}`} />
+                </div>
+                <div>
+                  <label className={`block mb-1 font-bold ${styles.text}`}>Parol</label>
+                  <input type="password" required placeholder="Parol..." value={inputPassword} onChange={e => setInputPassword(e.target.value)} className={`w-full p-2.5 rounded-xl border focus:outline-none ${styles.input}`} />
+                </div>
+                
+                <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl cursor-pointer hover:bg-indigo-700 transition-all">
+                  {authMode === 'login' ? 'Kirish' : 'Ro‘yxatdan o‘tish'}
                 </button>
+
+                {role === 'teacher' && (
+                  <div className="text-center mt-2">
+                    <button type="button" onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')} className="text-indigo-500 font-bold underline">
+                      {authMode === 'login' ? "Yangi akkaunt yaratish" : "Menda akkaunt bor (Kirish)"}
+                    </button>
+                  </div>
+                )}
+                
+                <button type="button" onClick={() => setRole(null)} className={`w-full text-center text-[11px] underline ${styles.muted}`}>Orqaga</button>
+              </form>
+            </motion.div>
+          )}
+
+          {/* O'QITUVCHI INTERFEYSI */}
+          {role === 'teacher' && isLoggedIn && quizState === 'list' && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-1.5 p-1 bg-slate-800/10 rounded-xl w-fit">
+                {['umumiy', 'yaratish', 'savollar', 'oquvchilar', 'natijalar'].map(t => (
+                  <button key={t} onClick={() => setActiveTab(t)} className={`px-4 py-2 rounded-lg font-bold uppercase tracking-wider transition-all cursor-pointer ${activeTab === t ? 'bg-indigo-600 text-white shadow' : `${styles.muted} hover:bg-black/5`}`}>
+                    {t === 'umumiy' ? '📊 Tahlil' : t === 'yaratish' ? '📝 Test Tuzish' : t === 'savollar' ? '📚 Imtihonlar' : t === 'oquvchilar' ? '🔑 O\'quvchilar' : '📈 Natijalar'}
+                  </button>
+                ))}
+              </div>
+
+              {/* TAB: UMUMIY */}
+              {activeTab === 'umumiy' && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className={`p-5 rounded-xl ${styles.card}`}>
+                    <p className={styles.muted}>Yaratilgan testlar fani</p>
+                    <h2 className={`text-2xl font-black ${styles.text}`}>{myQuizzes.length} ta fandan</h2>
+                  </div>
+                  <div className={`p-5 rounded-xl ${styles.card}`}>
+                    <p className={styles.muted}>Ruxsat berilgan joriy o'quvchilar</p>
+                    <h2 className={`text-2xl font-black ${styles.text}`}>{myStudents.length} nafar</h2>
+                  </div>
+                  <div className={`p-5 rounded-xl ${styles.card}`}>
+                    <p className={styles.muted}>Jami topshirilgan urinishlar</p>
+                    <h2 className={`text-2xl font-black ${styles.text}`}>{myResults.length} marta</h2>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: YARATISH */}
+              {activeTab === 'yaratish' && (
+                <div className={`p-5 rounded-xl ${styles.card}`}>
+                  <h3 className={`font-bold mb-4 ${styles.text}`}>{editingQuiz ? 'Testni Tahrirlash' : 'Yangi Test Yaratish'}</h3>
+                  <form onSubmit={handleCreateOrUpdateQuiz} className="space-y-4">
+                    <div className="grid grid-cols-3 gap-2">
+                      <input type="text" required placeholder="Fan/Imtihon nomi" value={newTitle} onChange={e => setNewTitle(e.target.value)} className={`col-span-2 p-2.5 rounded-xl border ${styles.input}`} />
+                      <input type="number" required placeholder="Vaqt (daqiqa)" value={newDuration} onChange={e => setNewDuration(e.target.value)} className={`p-2.5 rounded-xl border ${styles.input}`} />
+                    </div>
+                    <textarea placeholder="Imtihon qoidalari yoki tavsif..." value={newDesc} onChange={e => setNewDesc(e.target.value)} className={`w-full p-2.5 rounded-xl border ${styles.input}`}></textarea>
+                    
+                    <div className="space-y-2">
+                      <div className="flex justify-between font-bold">
+                        <span className={styles.text}>Savollar ro'yxati ({newQuestions.length})</span>
+                        <button type="button" onClick={() => setNewQuestions([...newQuestions, {text:'', options:['','','',''], correctAnswer:0}])} className="text-indigo-500 font-black">+ Yangi Savol Qo'shish</button>
+                      </div>
+                      {newQuestions.map((q, idx) => (
+                        <div key={idx} className="p-4 bg-black/5 dark:bg-white/5 rounded-xl space-y-2 border border-slate-700/10">
+                          <input type="text" placeholder={`Savol matni ${idx+1}`} value={q.text} onChange={e => { const u = [...newQuestions]; u[idx].text = e.target.value; setNewQuestions(u); }} className={`w-full p-2 rounded-lg ${styles.input}`} />
+                          <div className="grid grid-cols-2 gap-2">
+                            {q.options.map((opt, oIdx) => (
+                              <div key={oIdx} className="flex items-center gap-2">
+                                <span className={`font-bold ${styles.text}`}>{optionLetters[oIdx]})</span>
+                                <input type="text" placeholder={`Variant ${optionLetters[oIdx]}`} value={opt} onChange={e => { const u = [...newQuestions]; u[idx].options[oIdx] = e.target.value; setNewQuestions(u); }} className={`w-full p-2 rounded-lg ${styles.input}`} />
+                              </div>
+                            ))}
+                          </div>
+                          <div className="flex items-center gap-2 pt-2">
+                            <span className={styles.muted}>To'g'ri javob kaliti:</span>
+                            <select value={q.correctAnswer} onChange={e => { const u = [...newQuestions]; u[idx].correctAnswer = parseInt(e.target.value); setNewQuestions(u); }} className={`p-2 rounded-lg ${styles.input}`}>
+                              <option value={0}>A variant</option>
+                              <option value={1}>B variant</option>
+                              <option value={2}>C variant</option>
+                              <option value={3}>D variant</option>
+                            </select>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <button type="submit" className="w-full bg-indigo-600 text-white font-bold py-2.5 rounded-xl cursor-pointer">Imtihon testini saqlash</button>
+                  </form>
+                </div>
+              )}
+
+              {/* TAB: SAVOLLAR */}
+              {activeTab === 'savollar' && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {myQuizzes.map(q => (
+                    <div key={q.id} className={`p-4 rounded-xl flex flex-col justify-between ${styles.card}`}>
+                      <div>
+                        <h4 className={`font-black text-sm ${styles.text}`}>{q.title}</h4>
+                        <p className={`my-2 ${styles.muted}`}>{q.description}</p>
+                        <div className="flex items-center gap-1.5 text-indigo-500 font-bold bg-indigo-500/10 w-fit px-2 py-1 rounded-md">
+                          <Clock size={12}/> <span>{q.duration} daqiqa</span>
+                        </div>
+                      </div>
+                      <div className="flex justify-end gap-2 mt-4 pt-2 border-t border-slate-700/10">
+                        <button onClick={() => startEditQuiz(q)} className="text-indigo-500 p-1 hover:bg-indigo-500/5 rounded"><Edit2 size={14}/></button>
+                        <button onClick={() => setQuizzes(quizzes.filter(qz => qz.id !== q.id))} className="text-rose-500 p-1 hover:bg-rose-500/5 rounded"><Trash2 size={14}/></button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* TAB: O'QUVCHILAR */}
+              {activeTab === 'oquvchilar' && (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <form onSubmit={handleAddStudent} className={`p-4 rounded-xl space-y-3 ${styles.card}`}>
+                    <h4 className={`font-bold ${styles.text}`}>O'quvchiga Login/Parol Yaratish</h4>
+                    <input type="text" required placeholder="F.I.O" value={studName} onChange={e => setStudName(e.target.value)} className={`w-full p-2 rounded-lg ${styles.input}`} />
+                    <input type="text" required placeholder="Kirish logini" value={studUsername} onChange={e => setStudUsername(e.target.value)} className={`w-full p-2 rounded-lg ${styles.input}`} />
+                    <input type="text" required placeholder="Parol" value={studPassword} onChange={e => setStudPassword(e.target.value)} className={`w-full p-2 rounded-lg ${styles.input}`} />
+                    <button type="submit" className="w-full bg-emerald-600 text-white font-bold py-2 rounded-lg cursor-pointer">Bazaga Qo'shish</button>
+                  </form>
+                  <div className={`lg:col-span-2 p-4 rounded-xl ${styles.card}`}>
+                    <table className="w-full text-left">
+                      <thead>
+                        <tr className="border-b border-slate-600/20 text-indigo-500 font-bold">
+                          <th className="pb-2">F.I.O</th>
+                          <th className="pb-2">Login</th>
+                          <th className="pb-2">Parol</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {myStudents.map(s => (
+                          <tr key={s.id} className="border-b border-slate-600/10">
+                            <td className={`py-2 font-bold ${styles.text}`}>{s.name}</td>
+                            <td className="py-2 text-amber-500 font-mono">{s.username}</td>
+                            <td className={`py-2 font-mono ${styles.muted}`}>{s.password}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB: NATIJALAR */}
+              {activeTab === 'natijalar' && (
+                <div className={`p-5 rounded-xl ${styles.card} space-y-4`}>
+                  <div className="flex justify-between items-center">
+                    <h3 className={`font-bold ${styles.text}`}>Imtihon hisobotlari jadvali</h3>
+                    <button onClick={exportResultsToExcel} className="bg-emerald-600 text-white font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 cursor-pointer">
+                      <Download size={14}/> Excelga Yuklash
+                    </button>
+                  </div>
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="border-b border-slate-600/20 text-indigo-500 font-bold">
+                        <th>O'quvchi</th>
+                        <th>Fan nomi</th>
+                        <th>To'g'ri javob</th>
+                        <th>Foiz score</th>
+                        <th className="text-rose-500">Shpargalka (Cheat)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {myResults.map(r => (
+                        <tr key={r.id} className="border-b border-slate-600/10">
+                          <td className={`py-2 font-bold ${styles.text}`}>{r.studentName}</td>
+                          <td className={styles.text}>{r.quizTitle}</td>
+                          <td className={styles.text}>{r.score}/{r.totalQuestions}</td>
+                          <td className="text-emerald-500 font-bold">{r.percent}%</td>
+                          <td className="text-rose-500 font-mono font-bold">{r.cheats || 0} marta tab almashgan</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               )}
             </div>
-          </div>
-        </header>
+          )}
 
-        <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8 flex flex-col justify-center">
-          <AnimatePresence mode="wait">
-
-            {!role && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="max-w-xl mx-auto text-center my-6 w-full">
-                <h2 style={{ color: styles.text }} className="text-3xl font-black tracking-tight mb-2">Tizimga kirishni tanlang</h2>
-                <p style={{ color: styles.textMuted }} className="text-sm mb-8">Davom etish uchun o'zingizga tegishli panelni tanlang.</p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  <motion.button 
-                    whileHover={{ scale: 1.02, y: -2 }} 
-                    whileTap={{ scale: 0.98 }} 
-                    onClick={() => setRole('teacher')} 
-                    style={{ 
-                      backgroundColor: darkMode ? '#1e293b' : 'rgba(129, 144, 173, 0.8)', 
-                      border: darkMode ? '1px solid #334155' : '1px solid #bae6fd',
-                      boxShadow: '0 4px 20px rgba(117, 172, 244, 0.5)',cursor:'pointer' 
-                    }} 
-                    className="p-6 rounded-3xl text-left transition-all group"
-                  >
-                    <div 
-                      style={{
-                        backgroundColor: darkMode ? '#ffffff' : '#315a6f',boxShadow: '0 4px 20px rgba(87, 144, 214, 0.97)'
-                      }}
-                      className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-colors duration-300 shadow-lg shadow-blue-500/20"
-                    >
-                      <User 
-                        size={24} 
-                        style={{ color: darkMode ? '#0f172a' : '#ffffff' }} 
-                      />
-                    </div>
-                    <h3 style={{ color: styles.text }} className="font-extrabold text-lg mb-1">O'qituvchi Paneli</h3>
-                    <p style={{ color: styles.textMuted }} className="text-xs leading-relaxed">Testlarni boshqarish, yangi savollar va natijalar reytingi.</p>
-                  </motion.button>
-
-                  <motion.button 
-                    whileHover={{ scale: 1.02, y: -2 }} 
-                    whileTap={{ scale: 0.98 }} 
-                    onClick={() => setRole('student')} 
-                    style={{ 
-                      backgroundColor: darkMode ? '#1e293b' : 'rgba(166, 174, 171, 0.8)', 
-                      border: darkMode ? '1px solid #334155' : '1px solid #bbf7d0',
-                      boxShadow: '0 4px 20px rgba(130, 180, 247, 0.5)',cursor:'pointer' 
-                    }} 
-                    className="p-6 rounded-3xl text-left transition-all group"
-                  >
-                    <div 
-                      style={{
-                        backgroundColor: darkMode ? '#f3eded' : '#2f7384', 
-                        boxShadow: '0 4px 20px rgba(129, 185, 249, 0.59)'
-                      }}
-                      className="w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-colors duration-300 shadow-lg shadow-emerald-500/20"
-                    >
-                      <Award 
-                        size={24} 
-                        style={{ color: darkMode ? '#101623' : '#ffffff' }} 
-                      />
-                    </div>
-                    <h3 style={{ color: styles.text }} className="font-extrabold text-lg mb-1">O'quvchi Paneli</h3>
-                    <p style={{ color: styles.textMuted }} className="text-xs leading-relaxed">Aralashgan professional testlarni topshirish xonasi.</p>
-                  </motion.button>
-                </div>
-              </motion.div>
-            )}
-
-            {role && !isLoggedIn && (
-              <motion.div style={{ backgroundColor: styles.cardBg, border: styles.cardBorder, boxShadow: '0 2px 4px rgba(255, 255, 255, 0.4)' }} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} className="max-w-md w-full mx-auto p-8 rounded-2xl shadow-xl">
-                <form onSubmit={role === 'teacher' ? (savedTeacher ? handleTeacherLogin : handleTeacherRegister) : handleStudentLogin} className="space-y-4">
-                  <div className="text-center mb-4">
-                    <div className="w-12 h-12 bg-indigo-600 text-white rounded-xl flex items-center justify-center mx-auto mb-2">
-                      {role === 'teacher' ? <Lock size={22} /> : <User size={22} />}
-                    </div>
-                    <h3 style={{ color: styles.text }} className="text-xl font-black">{role === 'teacher' ? (savedTeacher ? 'O‘qituvchi Kirishi' : 'Ro‘yxatdan o‘tish') : 'Ismingizni kiriting'}</h3>
-                  </div>
-                  {authError && <p className="text-xs text-red-500 bg-red-50 p-2.5 rounded-lg text-center font-bold">{authError}</p>}
-
-                  {role === 'teacher' ? (
-                    <>
-                      <input type="text" required placeholder="Login" value={teacherLogin} onChange={e => setTeacherLogin(e.target.value)} style={{ backgroundColor: styles.inputBg, color: styles.text, border: styles.cardBorder }} className="w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none" />
-                      <input type="password" required placeholder="Parol" value={teacherPassword} onChange={e => setTeacherPassword(e.target.value)} style={{ backgroundColor: styles.inputBg, color: styles.text, border: styles.cardBorder }} className="w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none" />
-                    </>
-                  ) : (
-                    <input type="text" required placeholder="Ism va Familiyangiz" value={studentName} onChange={e => setStudentName(e.target.value)} style={{ backgroundColor: styles.inputBg, color: styles.text, border: styles.cardBorder }} className="w-full px-4 py-2.5 rounded-xl text-sm focus:outline-none" />
-                  )}
-                  <button
-                    type="submit"
-                    style={{
-                      backgroundColor: darkMode ? '#ffffff' : '#0f172a',
-                      color: darkMode ? '#0f172a' : '#ffffff',
-                      boxShadow: '0 2px 4px rgba(150, 172, 238, 0.97)' 
-                    }}
-                    className="w-full font-bold py-3 rounded-xl hover:opacity-90 active:scale-[0.99] transition-all text-sm"
-                  >
-                    Tasdiqlash
-                  </button>
-                </form>
-              </motion.div>
-            )}
-
-            {/* O'QITUVCHI PROFESSIONALL DASHBOARD (BOSHQARUV MARKAZI) */}
-            {role === 'teacher' && isLoggedIn && quizState === 'list' && (
-              <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} className="w-full space-y-8">
-                
-                {/* DASHBOARD HEADER */}
-                <div className="space-y-1">
-                  <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">O'qituvchi paneli</span>
-                  <h2 style={{ color: styles.text }} className="text-3xl font-black tracking-tight">Boshqaruv markazi</h2>
-                  <p style={{ color: styles.textMuted }} className="text-sm">Testlar yarating, o'quvchilarga ruxsat bering va natijalarni kuzating.</p>
-                </div>
-
-                {/* TAB MENYU */}
-                <div style={{ borderBottom: styles.cardBorder }} className="flex items-center gap-6 pb-px overflow-x-auto">
-                  {[
-                    { id: 'umumiy', label: '📊 Umumiy Statistika' },
-                    { id: 'yaratish', label: '✨ Yangi Test Yaratish' },
-                    { id: 'savollar', label: '📝 Imtihonlar ro\'yxati' },
-                    { id: 'natijalar', label: '📈 Reyting & Natijalar' }
-                  ].map(tab => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setActiveTab(tab.id)}
-                      style={{ 
-                        color: activeTab === tab.id ? '#4f46e5' : styles.textMuted,
-                        borderBottom: activeTab === tab.id ? '2px solid #4f46e5' : '2px solid transparent'
-                      }}
-                      className="pb-3 text-sm font-bold transition-all whitespace-nowrap px-1 relative -mb-px cursor-pointer"
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* 1. UMUMIY TAB */}
-                {activeTab === 'umumiy' && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-                      <div style={{ backgroundColor: styles.cardBg, border: styles.cardBorder, boxShadow: styles.shadow }} className="p-5 rounded-2xl flex items-center justify-between">
-                        <div className="space-y-1">
-                          <p style={{ color: styles.textMuted }} className="text-xs font-medium">Umumiy testlar</p>
-                          <h3 style={{ color: styles.text }} className="text-3xl font-black">{quizzes.length}</h3>
-                          <p className="text-[10px] text-slate-400">Tizimdagi jami fanlar</p>
-                        </div>
-                        <div className="bg-gradient-to-tr from-indigo-500 to-indigo-100 p-3 rounded-xl text-indigo-600"><BookOpen size={20} /></div>
-                      </div>
-
-                      <div style={{ backgroundColor: styles.cardBg, border: styles.cardBorder, boxShadow: styles.shadow }} className="p-5 rounded-2xl flex items-center justify-between">
-                        <div className="space-y-1">
-                          <p style={{ color: styles.textMuted }} className="text-xs font-medium">Faol talabalar</p>
-                          <h3 style={{ color: styles.text }} className="text-3xl font-black">{new Set(results.map(r => r.studentName)).size}</h3>
-                          <p className="text-[10px] text-emerald-500 font-semibold">Test topshirganlar</p>
-                        </div>
-                        <div className="bg-gradient-to-tr from-emerald-500 to-emerald-100 p-3 rounded-xl text-emerald-600"><User size={20} /></div>
-                      </div>
-
-                      <div style={{ backgroundColor: styles.cardBg, border: styles.cardBorder, boxShadow: styles.shadow }} className="p-5 rounded-2xl flex items-center justify-between">
-                        <div className="space-y-1">
-                          <p style={{ color: styles.textMuted }} className="text-xs font-medium">O'rtacha o'zlashtirish</p>
-                          <h3 style={{ color: styles.text }} className="text-3xl font-black">
-                            {results.length > 0 ? Math.round(results.reduce((acc, c) => acc + c.percent, 0) / results.length) : 0}%
-                          </h3>
-                          <p className="text-[10px] text-amber-500 font-semibold">Umumiy ko'rsatkich</p>
-                        </div>
-                        <div className="bg-gradient-to-tr from-amber-500 to-amber-100 p-3 rounded-xl text-amber-600"><Award size={20} /></div>
-                      </div>
-
-                      <div style={{ backgroundColor: styles.cardBg, border: styles.cardBorder, boxShadow: styles.shadow }} className="p-5 rounded-2xl flex items-center justify-between">
-                        <div className="space-y-1">
-                          <p style={{ color: styles.textMuted }} className="text-xs font-medium">Jami urinishlar</p>
-                          <h3 style={{ color: styles.text }} className="text-3xl font-black">{results.length} marta</h3>
-                          <p className="text-[10px] text-rose-400">Yuborilgan javoblar</p>
-                        </div>
-                        <div className="bg-gradient-to-tr from-rose-500 to-rose-100 p-3 rounded-xl text-rose-600"><Clock size={20} /></div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                      <div style={{ backgroundColor: styles.cardBg, border: styles.cardBorder, boxShadow: styles.shadow }} className="p-5 rounded-2xl lg:col-span-1 space-y-4">
-                        <h4 style={{ color: styles.text }} className="font-bold text-sm">Fanlar tahlili</h4>
-                        <div className="space-y-4">
-                          {quizzes.map(q => {
-                            const quizRes = results.filter(r => r.quizTitle === q.title);
-                            const avg = quizRes.length > 0 ? Math.round(quizRes.reduce((a,c) => a + c.percent, 0) / quizRes.length) : 0;
-                            return (
-                              <div key={q.id} className="space-y-1.5">
-                                <div className="flex justify-between text-xs font-medium">
-                                  <span style={{ color: styles.text }} className="truncate max-w-[150px]">{q.title}</span>
-                                  <span style={{ color: styles.textMuted }}>{avg}% ({quizRes.length} urinish)</span>
-                                </div>
-                                <div className="w-full bg-slate-100 dark:bg-slate-700 h-2 rounded-full overflow-hidden">
-                                  <div style={{ width: `${avg || 4}%` }} className="bg-indigo-600 h-full rounded-full transition-all duration-500" />
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <div style={{ backgroundColor: styles.cardBg, border: styles.cardBorder, boxShadow: styles.shadow }} className="p-5 rounded-2xl lg:col-span-2 space-y-4">
-                        <h4 style={{ color: styles.text }} className="font-bold text-sm">Oxirgi faolliklar</h4>
-                        <div className="space-y-3 max-h-[260px] overflow-y-auto">
-                          {results.slice(0, 4).map(res => (
-                            <div key={res.id} style={{ borderBottom: styles.cardBorder }} className="flex items-center justify-between pb-3 last:border-none last:pb-0">
-                              <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl flex items-center justify-center font-bold text-xs">{res.studentName[0]}</div>
-                                <div>
-                                  <h5 style={{ color: styles.text }} className="text-xs font-bold">{res.studentName}</h5>
-                                  <p style={{ color: styles.textMuted }} className="text-[10px]">{res.quizTitle}</p>
-                                </div>
-                              </div>
-                              <div className="text-right">
-                                <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">{res.percent}%</span>
-                                <p style={{ color: styles.textMuted }} className="text-[9px] mt-0.5">{res.date}</p>
-                              </div>
-                            </div>
-                          ))}
-                          {results.length === 0 && (
-                            <p style={{ color: styles.textMuted }} className="text-xs text-center py-8">Hozircha o'quvchilar tomonidan test topshirilmadi.</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {/* 2. TEST YARATISH TABI */}
-                {activeTab === 'yaratish' && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ backgroundColor: styles.cardBg, border: styles.cardBorder, boxShadow: styles.shadow }} className="p-6 rounded-2xl max-w-2xl mx-auto">
-                    <h3 style={{ color: styles.text }} className="font-bold text-base mb-4 flex items-center gap-1.5"><Plus className="text-indigo-500" size={18} /> Yangi imtihon majmuasi yaratish</h3>
-                    <form onSubmit={handleCreateQuiz} className="space-y-4">
-                      <input type="text" required value={newTitle} onChange={e => setNewTitle(e.target.value)} placeholder="Fan nomi (Masalan: Matematika - 2-Chorak)" style={{ backgroundColor: styles.inputBg, color: styles.text, border: styles.cardBorder }} className="w-full px-4 py-3 rounded-xl text-xs focus:outline-none" />
-                      <textarea required value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Test haqida qisqacha izoh yoki ko'rsatmalar..." rows="3" style={{ backgroundColor: styles.inputBg, color: styles.text, border: styles.cardBorder }} className="w-full px-4 py-3 rounded-xl text-xs focus:outline-none"></textarea>
-                      <input type="number" value={newDuration} onChange={e => setNewDuration(e.target.value)} placeholder="Ajratilgan vaqt (daqiqa hisobida)" style={{ backgroundColor: styles.inputBg, color: styles.text, border: styles.cardBorder }} className="w-full px-4 py-3 rounded-xl text-xs focus:outline-none" />
-                      
-                      <div style={{ borderTop: styles.cardBorder }} className="pt-4 space-y-4">
-                        <div className="flex items-center justify-between"><label style={{ color: styles.text }} className="text-xs font-bold uppercase tracking-wider">Savollar ro'yxati ({newQuestions.length})</label><button type="button" onClick={() => setNewQuestions([...newQuestions, { text: '', options: ['', '', '', ''], correctAnswer: 0 }])} className="text-xs font-bold text-indigo-600 hover:underline">+ Savol qo'shish</button></div>
-                        {newQuestions.map((q, qIdx) => (
-                          <div key={qIdx} style={{ backgroundColor: styles.bg, border: styles.cardBorder }} className="p-4 rounded-xl space-y-3">
-                            <input type="text" required placeholder={`Savol matnini kiriting`} value={q.text} onChange={e => { const u = [...newQuestions]; u[qIdx].text = e.target.value; setNewQuestions(u); }} style={{ backgroundColor: styles.cardBg, color: styles.text, border: styles.cardBorder }} className="w-full px-3 py-2 rounded-lg text-xs" />
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {q.options.map((opt, oIdx) => (
-                                <div key={oIdx} style={{ backgroundColor: styles.cardBg, border: styles.cardBorder }} className="flex items-center gap-2 px-3 py-1.5 rounded-lg">
-                                  <input type="radio" name={`correct-${qIdx}`} checked={q.correctAnswer === oIdx} onChange={() => { const u = [...newQuestions]; u[qIdx].correctAnswer = oIdx; setNewQuestions(u); }} className="accent-indigo-600" />
-                                  <input type="text" required placeholder={`Variant ${oIdx+1}`} value={opt} onChange={e => { const u = [...newQuestions]; u[qIdx].options[oIdx] = e.target.value; setNewQuestions(u); }} style={{ color: styles.text }} className="w-full bg-transparent border-none text-xs focus:outline-none" />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-3 rounded-xl shadow-lg transition-all">Ma'lumotlarni saqlash va e'lon qilish</button>
-                    </form>
-                  </motion.div>
-                )}
-
-                {/* 3. MAVJUD IMTIHONLAR RO'YXATI */}
-                {activeTab === 'savollar' && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                    {quizzes.map(quiz => (
-                      <div key={quiz.id} style={{ backgroundColor: styles.cardBg, border: styles.cardBorder, boxShadow: styles.shadow }} className="p-5 rounded-2xl flex flex-col justify-between transition-all">
-                        <div>
-                          <span className="inline-block text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-600 mb-2">{quiz.duration} daqiqa</span>
-                          <h3 style={{ color: styles.text }} className="font-extrabold text-base mb-1">{quiz.title}</h3>
-                          <p style={{ color: styles.textMuted }} className="text-xs line-clamp-2 mb-4">{quiz.description}</p>
-                        </div>
-                        <div style={{ borderTop: styles.cardBorder }} className="flex items-center justify-between pt-3 mt-4">
-                          <span style={{ color: styles.textMuted }} className="text-[11px] font-bold">{quiz.questions.length} ta test savoli</span>
-                          <button onClick={() => setQuizzes(quizzes.filter(q => q.id !== quiz.id))} className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"><Trash2 size={16} /></button>
-                        </div>
-                      </div>
-                    ))}
-                    {quizzes.length === 0 && (
-                      <p style={{ color: styles.textMuted }} className="text-xs text-center py-12 col-span-full">Hozircha hech qanday test mavjud emas.</p>
-                    )}
-                  </motion.div>
-                )}
-
-                {/* 4. REYTING JADVALI */}
-                {activeTab === 'natijalar' && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ backgroundColor: styles.cardBg, border: styles.cardBorder, boxShadow: styles.shadow }} className="rounded-2xl p-5 overflow-hidden">
-                    <h3 style={{ color: styles.text }} className="font-bold text-base mb-4">O'quvchilar reytingi (Barcha natijalar)</h3>
-                    {results.length === 0 ? (
-                      <p style={{ color: styles.textMuted }} className="text-xs text-center py-8">Tizimda hozircha natijalar qayd etilmagan.</p>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs">
-                          <thead>
-                            <tr style={{ borderBottom: styles.cardBorder, color: styles.textMuted }} className="font-bold">
-                              <th className="p-3">O'quvchi ismi</th>
-                              <th>Topshirgan fani</th>
-                              <th>To'g'ri javoblar</th>
-                              <th>Ko'rsatkich</th>
-                              <th>Topshirilgan vaqt</th>
-                            </tr>
-                          </thead>
-                          <tbody style={{ color: styles.text }}>
-                            {results.map(res => (
-                              <tr key={res.id} style={{ borderBottom: styles.cardBorder }} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-all">
-                                <td className="p-3 font-bold">{res.studentName}</td>
-                                <td>{res.quizTitle}</td>
-                                <td className="font-semibold">{res.score} / {res.totalQuestions}</td>
-                                <td><span className="px-2.5 py-1 rounded-lg font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">{res.percent}%</span></td>
-                                <td style={{ color: styles.textMuted }}>{res.date}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </motion.div>
-                )}
-              </motion.div>
-            )}
-
-            {/* O'QUVCHI UCHUN TESTLAR RO'YXATI */}
-            {role === 'student' && isLoggedIn && quizState === 'list' && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 w-full">
-                <div className="space-y-1">
-                  <span className="text-xs font-bold text-indigo-600 uppercase tracking-wider">O'quvchi xonasi</span>
-                  <h2 style={{ color: styles.text }} className="text-2xl font-black flex items-center gap-2"><Award className="text-indigo-500" size={22} /> Sentyabr oyi imtihonlari ({quizzes.length})</h2>
-                  <p style={{ color: styles.textMuted }} className="text-xs">Ajratilgan vaqt tugashidan oldin javoblarni belgilab topshirishga ulguring.</p>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {quizzes.map(quiz => (
-                    <motion.div key={quiz.id} style={{ backgroundColor: styles.cardBg, border: styles.cardBorder, boxShadow: styles.shadow }} className="p-5 rounded-2xl flex flex-col justify-between transition-all">
+          {/* O'QUVCHI INTERFEYSI */}
+          {role === 'student' && isLoggedIn && (
+            <div className="w-full">
+              {quizState === 'list' && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {quizzes.filter(q => q.teacherId === currentStudent.teacherId).map(q => (
+                    <div key={q.id} className={`p-5 rounded-xl flex flex-col justify-between ${styles.card}`}>
                       <div>
-                        <span style={{ backgroundColor: styles.bg, color: styles.text }} className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md mb-2"><Clock size={10} /> {quiz.duration} min</span>
-                        <h3 style={{ color: styles.text }} className="font-extrabold text-base mb-1">{quiz.title}</h3>
-                        <p style={{ color: styles.textMuted }} className="text-xs line-clamp-2 mb-4">{quiz.description}</p>
+                        <h3 className={`font-black text-sm my-2 ${styles.text}`}>{q.title}</h3>
+                        <p className={styles.muted}>{q.description}</p>
+                        <div className="flex items-center gap-1 text-emerald-500 font-bold mt-2">
+                          <Clock size={12}/> Berilgan vaqt: {q.duration} daqiqa
+                        </div>
                       </div>
-                      <div style={{ borderTop: styles.cardBorder }} className="flex items-center justify-between pt-3 mt-2">
-                        <span style={{ color: styles.textMuted }} className="text-[11px] font-medium">{quiz.questions.length} ta savol</span>
-                        <button onClick={() => handleStartQuiz(quiz)} className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-sm cursor-pointer"><Play size={10} fill="white" /> Boshlash</button>
-                      </div>
-                    </motion.div>
+                      <button onClick={() => { setCurrentQuiz(q); setTimeLeft(q.duration * 60); setQuizStartTime(Date.now()); setAnswers({}); setCheatCount(0); setQuizState('playing'); }} className="w-full bg-indigo-600 text-white font-bold py-2.5 rounded-xl mt-4 cursor-pointer">
+                        Imtihonni Boshlash
+                      </button>
+                    </div>
                   ))}
-                  </div>
-              </motion.div>
-            )}
-
-            {/* TEST JAYRONI (PLAYING CHESS) */}
-            {quizState === 'playing' && currentQuiz && (
-              <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }} style={{ backgroundColor: styles.cardBg, border: styles.cardBorder }} className="max-w-2xl w-full mx-auto rounded-2xl shadow-lg overflow-hidden">
-                <div className="bg-slate-900 text-white px-6 py-4 flex items-center justify-between">
-                  <div><h3 className="font-extrabold text-base">{currentQuiz.title}</h3><p className="text-[11px] text-slate-400">Savollar tasodifiy aralashtirilgan</p></div>
-                  <div className="bg-slate-800 text-indigo-400 px-3 py-1.5 rounded-xl font-mono text-xs font-bold flex items-center gap-1.5">
-                    <Clock size={14} /> {Math.floor(timeLeft / 60)}:{timeLeft % 60 < 10 ? '0' : ''}{timeLeft % 60}
-                  </div>
                 </div>
-                <div className="p-6 space-y-5">
+              )}
+
+              {/* JONLI IMTIHON TOPShIRISh VA TAYMER KO'RINISHI */}
+              {quizState === 'playing' && currentQuiz && (
+                <div className="max-w-2xl mx-auto space-y-4">
+                  
+                  {/* TEPADAGI STICKY VAQT TAYMERI */}
+                  <div className={`p-4 rounded-xl flex justify-between items-center sticky top-20 z-40 ${styles.card}`}>
+                    <div>
+                      <h4 className={`font-black text-sm ${styles.text}`}>{currentQuiz.title}</h4>
+                      <p className="text-[10px] text-amber-500 font-bold">Ogohlantirish: Boshqa oynaga o'tsangiz qayd etiladi!</p>
+                    </div>
+                    {/* VAQT TAYMERI */}
+                    <div className="bg-rose-500 text-white font-mono font-black text-sm px-4 py-2 rounded-xl shadow animate-pulse flex items-center gap-2">
+                      <Clock size={14}/>
+                      <span>
+                        Qoldi: {Math.floor(timeLeft / 60)}:{timeLeft % 60 < 10 ? '0' : ''}{timeLeft % 60}
+                      </span>
+                    </div>
+                  </div>
+                  {/* TETRIS SAHIFASI ALOHIDA FAYLDAN CHAQIRILDI */}
+{isLoggedIn && quizState === 'game' && (
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+    <Tetris darkMode={darkMode} /> {/* <--- O'yin shu yerda ochiladi */}
+  </motion.div>
+)}
+
+                  {/* SAVOLLAR RO'YXATI VA ABC VARIANTLAR */}
                   {currentQuiz.questions.map((q, qIdx) => (
-                    <div key={q.id} className="space-y-2.5">
-                      <h4 style={{ color: styles.text }} className="font-bold text-sm">{qIdx + 1}. {q.text}</h4>
+                    <div key={qIdx} className={`p-5 rounded-xl space-y-3 ${styles.card}`}>
+                      <p className={`font-bold text-sm ${styles.text}`}>{qIdx + 1}. {q.text}</p>
                       <div className="grid grid-cols-1 gap-2">
                         {q.options.map((opt, oIdx) => (
-                          <button key={oIdx} type="button" onClick={() => setAnswers({ ...answers, [qIdx]: oIdx })} style={{ backgroundColor: answers[qIdx] === oIdx ? 'rgba(79, 70, 229, 0.15)' : styles.bg, color: styles.text, border: answers[qIdx] === oIdx ? '2px solid #4f46e5' : styles.cardBorder, cursor:'pointer' }} className="w-full text-left px-4 py-2.5 rounded-xl text-xs transition-all">{opt}</button>
+                          <button type="button" key={oIdx} onClick={() => setAnswers({ ...answers, [qIdx]: oIdx })} className={`text-left p-3.5 rounded-xl border font-bold flex items-center gap-3 transition-all ${answers[qIdx] === oIdx ? 'bg-indigo-600 text-white border-indigo-500 shadow-md' : `${styles.input} hover:bg-black/5`}`}>
+                            <span className={`w-6 h-6 rounded-full flex items-center justify-center border font-mono ${answers[qIdx] === oIdx ? 'bg-white text-indigo-600 border-white' : 'bg-black/5 border-slate-400'}`}>
+                              {optionLetters[oIdx]}
+                            </span>
+                            <span>{opt}</span>
+                          </button>
                         ))}
                       </div>
                     </div>
                   ))}
-                  <button onClick={handleFinishQuiz} className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold py-3 rounded-xl shadow-md flex items-center justify-center gap-1.5 text-xs cursor-pointer"><CheckCircle size={15} /> Yakunlash</button>
+                  <button onClick={handleFinishQuiz} className="w-full bg-emerald-600 text-white font-black py-3.5 rounded-xl cursor-pointer shadow-xl text-sm uppercase tracking-wider">Imtihonni Yakunlash</button>
                 </div>
-              </motion.div>
-            )}
+              )}
 
-            {/* TEST TUGAGANDAGI NATIJA (RESULT) */}
-            {quizState === 'result' && (
-              <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} style={{ backgroundColor: styles.cardBg, border: styles.cardBorder }} className="max-w-md w-full mx-auto p-8 rounded-2xl shadow-xl text-center">
-                <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle size={36} />
+              {quizState === 'result' && (
+                <div className={`max-w-sm mx-auto p-6 rounded-2xl text-center space-y-4 mt-8 ${styles.card}`}>
+                  <div className="w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto"><CheckCircle size={24}/></div>
+                  <h3 className={`text-xl font-black ${styles.text}`}>Imtihon Yakunlandi</h3>
+                  <p className={styles.muted}>Natijalaringiz muvaffaqiyatli server omboriga saqlandi.</p>
+                  <div className="p-4 bg-indigo-500/5 rounded-xl font-mono border border-indigo-500/10">
+                    <h1 className="text-4xl font-black text-indigo-500">{latestScore.percent}%</h1>
+                    <p className={`text-xs mt-2 ${styles.text}`}>To'g'ri javoblar: {latestScore.score} / {latestScore.total}</p>
+                    <p className="text-amber-500 mt-1">Sarflangan umumiy vaqt: {latestScore.timeSpent}</p>
+                  </div>
+                  <button onClick={() => setQuizState('list')} className="w-full bg-slate-900 text-white dark:bg-white dark:text-slate-900 font-bold py-2.5 rounded-xl cursor-pointer">Bosh oynaga qaytish</button>
                 </div>
-                <h3 style={{ color: styles.text }} className="text-2xl font-black mb-1">Imtihon Yakunlandi!</h3>
-                <p style={{ color: styles.textMuted }} className="text-sm mb-6">Sizning natijangiz muvaffaqiyatli saqlandi.</p>
-                <div style={{ backgroundColor: styles.bg }} className="p-4 rounded-xl mb-6">
-                  <span style={{ color: styles.textMuted }} className="text-xs uppercase font-bold tracking-wider">To'g'ri javoblar</span>
-                  <h2 style={{ color: styles.text }} className="text-4xl font-black mt-1">{score} / {currentQuiz?.questions.length}</h2>
-                </div>
-                <button onClick={() => setQuizState('list')} className="w-full bg-indigo-600 text-white font-bold py-2.5 rounded-xl shadow-md hover:bg-indigo-700 transition-all text-xs cursor-pointer">Bosh sahifaga qaytish</button>
-              </motion.div>
-            )}
+              )}
+            </div>
+          )}
 
-          </AnimatePresence>
-        </main>
-      </div>
+        </AnimatePresence>
+      </main>
     </div>
   );
 }
