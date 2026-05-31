@@ -56,3 +56,156 @@ body {
 .dark ::-webkit-scrollbar-thumb {
   background: #475569;
 }
+/* ==========================================================================
+   EDU PLATFORM - CHURKUN VA TO'LIQ MOSLASHUVCHAN DESIGN TIZIMI
+   (Katta o'qituvchilar uchun yirik shriftlar va mukammal Dark/Light rejimi)
+   ========================================================================== */
+
+/* 1. GLOBAL SHRIFTLARNI KATTALASHTIRISH (Barcha rejimlar uchun) */
+body {
+  font-size: 18px !important;
+}
+
+/* Saytdagi barcha kichik va o'rtacha matnlarni o'qituvchilar qiynalmasligi uchun yiriklashtirish */
+p, span, label, td, th {
+  font-size: 16px !important;
+  line-height: 1.6 !important;
+}
+
+/* Kichik izohlar (text-xs, text-sm) o'ta kichik bo'lib ketmasligini ta'minlash */
+.text-xs, .text-sm {
+  font-size: 15px !important;
+}
+
+/* Sarlavhalarni sezilarli va yirik qilish */
+h1, h2, .text-2xl, .text-3xl {
+  font-size: 2rem !important; /* Taxminan 32px */
+  font-weight: 800 !important;
+}
+
+h3, .text-xl {
+  font-size: 1.45rem !important; /* Taxminan 23px */
+  font-weight: 700 !important;
+}
+
+/* ==========================================================================
+   JADVAL ICHIDAGI FOIZ KO'RSATKICHLARI (BADGE) UCHUN STIL
+   ========================================================================== */
+
+/* Dark Mode holatida foiz ko'rsatkichining foni va matni */
+html.dark td span[className*="rounded"],
+html.dark td .rounded-full,
+html.dark td span[class*="bg-"] {
+  background-color: #10b981 !important; /* Chiroyli yashil fon (Muvaffaqiyat belgisi) */
+  color: #ffffff !important; /* Matn oppoq bo'lib aniq ko'rinadi */
+  font-weight: 700 !important;
+  padding: 4px 12px !important;
+}
+
+/* Light Mode holatida foiz ko'rsatkichi */
+html:not(.dark) td span[className*="rounded"],
+html:not(.dark) td .rounded-full,
+html:not(.dark) td span[class*="bg-"] {
+  background-color: #e6f4ea !important; /* Och yashil fon */
+  color: #137333 !important; /* To'q yashil matn */
+  font-weight: 700 !important;
+  padding: 4px 12px !important;
+}
+/* ==========================================================================
+   2. LIGHT MODE SOZLAMALARI (Agar 'dark' klassi yoqilmagan bo'lsa)
+   ========================================================================== */
+html:not(.dark) body, 
+html:not(.dark) #root {
+  background-color: #f8fafc !important; /* Tiniq och fon */
+}
+
+/* Matnlar oq fonda qop-qora va aniq ko'rinishi uchun */
+html:not(.dark) h1, html:not(.dark) h2, html:not(.dark) h3,
+html:not(.dark) p, html:not(.dark) span, html:not(.dark) label,
+html:not(.dark) td, html:not(.dark) th, html:not(.dark) div[style*="color"] {
+  color: #0f172a !important; 
+}
+
+/* Light mode uchun Input va Textarealar */
+html:not(.dark) input, 
+html:not(.dark) textarea, 
+html:not(.dark) select {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border: 2px solid #cbd5e1 !important; /* Aniq ko'rinadigan qalin chegara */
+  padding: 12px 16px !important;
+  font-size: 17px !important;
+  border-radius: 8px !important;
+}
+
+html:not(.dark) input::placeholder, 
+html:not(.dark) textarea::placeholder {
+  color: #64748b !important; /* To'qroq placeholder */
+}
+
+/* Light mode uchun Kartalar (Card) */
+html:not(.dark) .bg-[#1e293b], 
+html:not(.dark) .edu-card,
+html:not(.dark) div[class*="bg-slate-"],
+html:not(.dark) button[class*="rounded"] {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06) !important;
+}
+
+
+/* ==========================================================================
+   3. DARK MODE SOZLAMALARI (Agar 'dark' klassi faol bo'lsa)
+   ========================================================================== */
+html.dark body, 
+html.dark #root {
+  background-color: #0f172a !important; /* To'q ko'k / qora fon */
+}
+
+/* Dark mode-da barcha matnlar oppoq va yorqin ko'rinishi uchun */
+html.dark h1, html.dark h2, html.dark h3,
+html.dark p, html.dark span, html.dark label,
+html.dark td, html.dark th {
+  color: #f8fafc !important; 
+}
+
+/* Dark mode-da yordamchi yoki ikkinchi darajali och matnlar */
+html.dark .text-slate-400, 
+html.dark .text-gray-400 {
+  color: #cbd5e1 !important;
+}
+
+/* Dark mode uchun Input va Textarealar */
+html.dark input, 
+html.dark textarea, 
+html.dark select {
+  background-color: #1e293b !important; /* To'q ichki fon */
+  color: #ffffff !important;
+  border: 2px solid #334155 !important;
+  padding: 12px 16px !important;
+  font-size: 17px !important;
+  border-radius: 8px !important;
+}
+
+html.dark input::placeholder, 
+html.dark textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Dark mode uchun Kartalar (Card) va Oq bloklarni to'q rangga o'tkazish */
+html.dark .bg-white,
+html.dark .edu-card {
+  background-color: #1e293b !important;
+  border: 1px solid #334155 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+
+/* ==========================================================================
+   4. INPUTLAR FAOL BO'LGANDAGI EFFEKT (Fokus holati)
+   ========================================================================== */
+input:focus, textarea:focus, select:focus {
+  border-color: #6366f1 !important; /* Indigo rangli liniya */
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25) !important;
+  outline: none !important;
+}
