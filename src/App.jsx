@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Play, CheckCircle, User, Award, Clock, LogOut, BookOpen, Lock, Edit2, FileText, Users, Key, AlertCircle, ArrowRight, Download, UserPlus, LogIn } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import Tetris from '../Tetris';
 import * as XLSX from 'xlsx';
 
 export default function App() {
@@ -209,8 +208,8 @@ export default function App() {
   };
 
   const styles = {
-    bg: darkMode ? 'linear-gradient(135deg, #090d16 0%, #111827 100%)' : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
-    card: darkMode ? 'bg-slate-900/90 border border-slate-800/80 shadow-2xl backdrop-blur-md' : 'bg-white border border-slate-200 shadow-lg backdrop-blur-md',
+    bg: darkMode ? 'linear-gradient(135deg, rgb(6, 14, 44) 0%, #03082c 100%)' : 'linear-gradient(135deg, #8aa7ff 0%, #f1f5f9 100%)',
+    card: darkMode ? ' bg-slate-900/90 border border-slate-800/80 shadow-2xl backdrop-blur-md' : 'bg-white border border-slate-200 shadow-lg backdrop-blur-md',
     text: darkMode ? 'text-slate-100' : 'text-slate-900',
     muted: darkMode ? 'text-slate-400' : 'text-slate-600',
     input: darkMode ? 'bg-slate-850 border-slate-700 text-white focus:ring-2 focus:ring-indigo-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:ring-2 focus:ring-indigo-600',
@@ -220,17 +219,17 @@ export default function App() {
     <div style={{ background: styles.bg }} className="w-full min-h-screen font-sans transition-all duration-300 pb-12 text-xs">
       
       {/* HEADER */}
-      <header className="sticky top-0 z-50 w-full bg-slate-900/80 backdrop-blur-md border-b border-white/10 px-6 py-4 flex items-center justify-between text-white">
+      <header className="sticky top-0 z-50 w-full bg-slate-900/70 backdrop-blur-md border-b border-white/10 px-6 py-4 flex items-center justify-between text-white">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => { if(isLoggedIn) setQuizState('list'); }}>
-          <div className="p-2 bg-indigo-600 rounded-xl text-white"><BookOpen size={20} /></div>
+          <div className="p-2 bg-indigo-500 rounded-xl text-white"><BookOpen size={20} /></div>
           <div>
-            <h1 className="text-lg font-black tracking-wider">EDU-CRM PLATFORM</h1>
+            <h1 className="text-lg font-black tracking-wider">EDU_Test PLATFORM</h1>
             {isLoggedIn && <span className="text-[10px] text-emerald-400 font-bold">● {role === 'teacher' ? `Ustoz: ${currentTeacher?.name}` : `O'quvchi: ${currentStudent?.name}`}</span>}
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setDarkMode(!darkMode)} className="px-3 py-2 bg-white/10 rounded-lg font-bold hover:bg-white/20 transition-all cursor-pointer">
-            {darkMode ? '☀️ Light' : '🌙 Dark'}
+            {darkMode ? '☀️ ' : '🌙 '}
           </button>
           {isLoggedIn && (
             <button onClick={() => { setRole(null); setIsLoggedIn(false); setQuizState('list'); setCurrentTeacher(null); setCurrentStudent(null); setAuthMode('login'); }} className="px-3 py-2 bg-rose-600 text-white font-bold rounded-lg hover:bg-rose-700 transition-all cursor-pointer">
@@ -246,17 +245,17 @@ export default function App() {
           
           {/* ROL TANLASH */}
           {!role && (
-            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl mx-auto text-center py-16 space-y-6">
-              <h2 className={`text-3xl font-black ${styles.text}`}>LMS & Imtihon Boshqaruv Tizimi</h2>
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-xl mx-auto text-center py-16 space-y-6, ">
+              <h2 className={`text-3xl font-black ${styles.text}`}>Imtihon Boshqaruv Tizimi</h2>
               <p className={styles.muted}>Xavfsiz va shaxsiy login parollarga asoslangan o'quv platformasi.</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div onClick={() => { setRole('teacher'); setAuthMode('login'); }} className={`p-6 rounded-2xl cursor-pointer text-left ${styles.card} hover:border-indigo-500 transition-all`}>
-                  <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white mb-4"><Users size={20}/></div>
+                <div onClick={() => { setRole('teacher'); setAuthMode('login'); }} className={`p-6 rounded-2xl cursor-pointer text-left ${styles.card} hover:border-indigo-700 transition-all shadow-indigo-700/40 hover:scale-105 active:scale-95 active:border-rose-200 mt-8 space-y-4 p-6 flex flex-col items-start scale-[1.03] active:scale-[0.97] `}>
+                  <div className="w-10 h-10 bg-indigo-900 rounded-lg flex items-center justify-center text-white mb-4 "><Users size={20}/></div>
                   <h3 className={`font-bold text-sm mb-1 ${styles.text}`}>O‘qituvchi Kabineti</h3>
-                  <p className={styles.muted}>O'z parolingizni qo'yib kirish, testlar va o'quvchilar qo'shish.</p>
+                  <p className={`${styles.muted}`}>O'z parolingizni qo'yib kirish, testlar va o'quvchilar qo'shish.</p>
                 </div>
-                <div onClick={() => setRole('student')} className={`p-6 rounded-2xl cursor-pointer text-left ${styles.card} hover:border-emerald-500 transition-all`}>
-                  <div className="w-10 h-10 bg-emerald-600 rounded-lg flex items-center justify-center text-white mb-4"><Award size={20}/></div>
+                <div onClick={() => setRole('student')} className={`p-6 rounded-2xl shadow-indigo-700/50 cursor-pointer text-left ${styles.card} hover:border-emerald-700 transition-all hover:scale-105 active:scale-95 active:border-rose-200 mt-0.5 space-y-4 p-6 flex flex-col items-start scale-[1.03] active:scale-[0.97]  `}>
+                  <div className="w-10 h-10 dark: bg-emerald-800 rounded-lg flex items-center justify-center text-white mb-4"><Award size={20}/></div>
                   <h3 className={`font-bold text-sm mb-1 ${styles.text}`}>O‘quvchi Maydoni</h3>
                   <p className={styles.muted}>Ustoz bergan maxsus login orqali kirib vaqtli testlarni topshirish.</p>
                 </div>
