@@ -400,23 +400,84 @@ const activeRequestsCount = allowedStudents.reduce((count, student) => {
 ))}
               </div>
 
-              {/* TAB: UMUMIY */}
-              {activeTab === 'umumiy' && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className={`p-5 rounded-xl ${styles.card}`}>
-                    <p className={styles.muted}>Yaratilgan testlar fani</p>
-                    <h2 className={`text-2xl font-black ${styles.text}`}>{myQuizzes.length} ta fandan</h2>
-                  </div>
-                  <div className={`p-5 rounded-xl ${styles.card}`}>
-                    <p className={styles.muted}>Ruxsat berilgan joriy o'quvchilar</p>
-                    <h2 className={`text-2xl font-black ${styles.text}`}>{myStudents.length} nafar</h2>
-                  </div>
-                  <div className={`p-5 rounded-xl ${styles.card}`}>
-                    <p className={styles.muted}>Jami topshirilgan urinishlar</p>
-                    <h2 className={`text-2xl font-black ${styles.text}`}>{myResults.length} marta</h2>
-                  </div>
+           {activeTab === 'umumiy' && (
+  <div className="space-y-6">
+    {/* Yuqoridagi 3 ta statistika kartochkalari (Mavjud kodlaringiz) */}
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* 4 ta fandan, 2 nafar, 4 marta kartochkalari shu yerda qoladi */}
+    </div>
+
+    {/* 👇 O'ZINGIZ QO'SHADIGAN TAHLIL JADVALI */}
+    <div className={`p-5 rounded-xl ${styles.card || 'bg-slate-800'}`}>
+      <h3 className="text-base font-bold text-indigo-400 mb-4">
+        📊 O'quvchilar Natijalari Batafsil Tahlili
+      </h3>
+
+      <div className="overflow-x-auto space-y-4">
+        {myStudents && myStudents.map((student) => {
+          // O'quvchining foizini hisoblaymiz (masalan: 80%)
+          const totalQuestions = student.latestScore?.total || 10;
+          const correctAnswers = student.latestScore?.score || 0;
+          const percentage = Math.round((correctAnswers / totalQuestions) * 100);
+
+          return (
+            <div 
+              key={student.id || student.username} 
+              className="p-4 rounded-xl border border-slate-700/50 bg-slate-900/40 space-y-3"
+            >
+              {/* O'quvchi ismi va umumiy foizi */}
+              <div className="flex justify-between items-center border-b border-slate-700/40 pb-2">
+                <div>
+                  <h4 className="font-bold text-white text-sm">{student.name || 'Ismsiz O\'quvchi'}</h4>
+                  <p className="text-[11px] text-slate-400">Login: <span className="text-amber-400 font-mono">{student.username}</span></p>
                 </div>
-              )}
+                {/* 🎯 FOIZ KO'RSATKICHI */}
+                <div className="text-right">
+                  <span className={`text-sm font-black px-2 py-1 rounded-lg ${
+                    percentage >= 70 ? 'bg-emerald-500/10 text-emerald-400' : 
+                    percentage >= 40 ? 'bg-amber-500/10 text-amber-400' : 'bg-rose-500/10 text-rose-400'
+                  }`}>
+                    {percentage}% Natija
+                  </span>
+                  <p className="text-[10px] text-slate-400 mt-1">{correctAnswers} / {totalQuestions} to'g'ri</p>
+                </div>
+              </div>
+
+              {/* ❌ NOTO'G'RI ISHLANGAN SAVOLLAR RO'YXATI */}
+              <div>
+                <h5 className="text-xs font-semibold text-rose-400 mb-1.5 flex items-center gap-1">
+                  ⚠️ Noto'g'ri bajarilgan topshiriqlar:
+                </h5>
+                
+                {/* Agar o'quvchi xato qilgan bo'lsa, ularni sikl (map) orqali chiqaramiz */}
+                {student.latestScore?.wrongAnswers && student.latestScore.wrongAnswers.length > 0 ? (
+                  <div className="space-y-1.5 pl-2 border-l-2 border-rose-500/30">
+                    {student.latestScore.wrongAnswers.map((wrong, idx) => (
+                      <div key={idx} className="text-xs text-slate-300">
+                        <p className="font-medium text-slate-200">
+                          <span className="text-rose-500 font-bold">{idx + 1}.</span> {wrong.questionTitle}
+                        </p>
+                        <p className="text-[11px] text-slate-400 pl-3">
+                          O'quvchi tanlagan: <span className="text-rose-400 font-bold">{wrong.selectedOption}</span> | 
+                          To'g'ri javob: <span className="text-emerald-400 font-bold">{wrong.correctOption}</span>
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-emerald-400 italic pl-2">
+                    🎉 Barcha savollarga to'g'ri javob berilgan yoki test hali topshirilmagan.
+                  </p>
+                )}
+              </div>
+
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  </div>
+)}
 
               {/* TAB: YARATISH (YANGI SAVOL RASMI PASGA TUSHIRILDI) */}
               {activeTab === 'yaratish' && (
@@ -583,7 +644,7 @@ const activeRequestsCount = allowedStudents.reduce((count, student) => {
                                   if (status === 'approved') return <p key={qz.id} className="text-emerald-500 font-bold text-[10px]">✅ {qz.title} (Qayta ochildi)</p>;
                                   return null;
                                 })}
-                                {!myQuizzes.some(qz => blockedStatuses[`${s.username}_${qz.id}`]) && <span className="text-slate-400 text-[10px]">Muammo yo'q</span>}
+                                {!myQuizzes.some(qz => blockedStatuses[`${s.username}_${qz.id}`]) && <span className="text-slate-500 text-[15px]">Muammo yo'q</span>}
                               </div>
                             </td>
                             <td className="py-2.5 text-right">
