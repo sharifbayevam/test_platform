@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { db } from './firebase.js';
-import { collection, getDocs, onSnapshot } from 'firebase/firestore';
+import axios from 'axios'; // 🚀 Node.js backendga so'rov yuborish uchun
 
 import OquvchiPanel from './components/OquvchiPanel';
-import AdminDashboard from './components/AdminDashboard.jsx'; // 👈 Yangi keng panel boshqaruvchisi
+import AdminDashboard from './components/AdminDashboard.jsx';
 
 export default function App() {
   const [role, setRole] = useState(() => localStorage.getItem('userRole') || 'home');
@@ -32,7 +31,7 @@ export default function App() {
     }
   }, [role, currentUser, darkMode]);
   
-  // LOGIN LOGIKASI
+  // 🔐 LOGIN LOGIKASI (NODE.JS + MONGODB BACKENDGA ULANGAN)
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     
@@ -41,41 +40,47 @@ export default function App() {
       return;
     }
     
-    // 👨‍🏫 O'qituvchi (Admin) kirishi
+    // 👨‍🏫 O'qituvchi (Admin) kirishi (O'zgarishsiz qoldi)
     if (loginInput.toLowerCase() === 'admin' && passwordInput === 'admin') {
       setRole('oqtuvchi');
       return;
     }
     
-    // 👥 O'quvchi kirishi (Firebase ro'yxatidan izlash)
+    // 👥 O'quvchi kirishi (Biz yaratgan Express Backend API'ga ulanadi)
     try {
-      const snap = await getDocs(collection(db, "students"));
-      const studentsList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      
-      // Bazada login maydoni 'login' yoki 'username' deb saqlangan bo'lishi mumkin, ikkalasini ham tekshiramiz
-      const foundStudent = studentsList.find(
-        s => (s.login?.trim() === loginInput.trim() || s.username?.trim() === loginInput.trim()) && 
-             s.password?.trim() === passwordInput.trim()
-      );
-      
-      if (foundStudent) {
-        // Blok holatini tekshirish
-        if (foundStudent.spamStatus === 'blocked') {
-          alert("❌ Siz tizim qoidalarini buzganingiz uchun bloklangansiz! Qayta faollashtirish arizasini yuboring.");
+      const res = await axios.post('http://localhost:5000/api/quizzes/students/login', {
+        login: loginInput.trim(),
+        password: passwordInput.trim()
+      });
+
+      if (res.data.success) {
+        // Blok holatini tekshirish (agar student modelida spamStatus bo'lsa)
+        if (res.data.student.spamStatus === 'blocked') {
+          alert("❌ Siz tizim qoidalarini buzganingiz uchun bloklangansiz!");
           return;
         }
-        setCurrentUser(foundStudent);
+        
+        // Muvaffaqiyatli kirganda ma'lumotlarni saqlash
+        setCurrentUser(res.data.student);
         setRole('oquvchi-panel');
-      } else {
-        alert("❌ Bunday loginli o'quvchi topilmadi yoki parol xato!");
       }
     } catch (err) {
       console.error(err);
-      alert("Bazaga ulanishda xato yuz berdi!");
+      // Backenddan kelgan aniq xatolik matnini ko'rsatish (Masalan: "Parol noto'g'ri!")
+      alert("❌ Xatolik: " + (err.response?.data?.error || "Serverga ulanishda xato yuz berdi!"));
     }
   };
   
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    // 💡 Chiqib ketayotganda o'quvchi statusini OFFLINE qilish (Ixtiyoriy chiroyli funksiya)
+    if (role === 'oquvchi-panel' && currentUser?._id) {
+      try {
+        await axios.post(`http://localhost:5000/api/quizzes/students/logout/${currentUser._id}`);
+      } catch (e) {
+        console.error("Logout status xatosi:", e);
+      }
+    }
+
     setRole('home');
     setCurrentUser(null);
     setLoginInput('');
@@ -92,7 +97,7 @@ export default function App() {
         {/* Rejimni o'zgartirish */}
         <div className="absolute top-4 right-4">
           <button onClick={() => setDarkMode(!darkMode)} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${darkMode ? 'bg-slate-900 border-slate-800 text-amber-400' : 'bg-white border-slate-300 text-slate-700'}`}>
-            {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+            {darkMode ? '☀️' : '🌙'}
           </button>
         </div>
 
@@ -107,7 +112,7 @@ export default function App() {
                 type="text" 
                 value={loginInput}
                 onChange={(e) => setLoginInput(e.target.value)}
-                placeholder="Login (admin yoki talaba logini)..." 
+                placeholder="Talaba logini (masalan: farrux8)..." 
                 className={`w-full rounded-xl px-4 py-3 text-xs focus:outline-none border ${darkMode ? 'bg-slate-950 border-slate-800 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-indigo-500'}`}
               />
             </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { db } from '../firebase.js';
 import { doc, updateDoc } from 'firebase/firestore';
+import * as XLSX from 'xlsx';
 
 export default function Tahlil({ myStudents = [], fetchTeacherData, darkMode }) {
   
@@ -37,6 +38,37 @@ export default function Tahlil({ myStudents = [], fetchTeacherData, darkMode }) 
   const pendingStudents = myStudents.filter(s => s.spamStatus === 'pending');
   // Shunchaki bloklangan, hali ariza bermagan talabalar (blocked)
   const blockedStudents = myStudents.filter(s => s.spamStatus === 'blocked');
+  const exportResultsToExcel = () => {
+  if (!myResults || myResults.length === 0) {
+    alert("❌ Eksport qilish uchun natijalar hali mavjud emas!");
+    return;
+  }
+
+  const dataToExport = myResults.map((res, index) => ({
+    "№": index + 1,
+    "O'quvchi Ismi": res.studentId?.name || "O'chirilgan foydalanuvchi",
+    "Login (ID)": res.studentId?.login || "-",
+    "Imtihon fani": res.quizTitle,
+    "To'g'ri javoblar": `${res.correctAnswers} ta`,
+    "Xato javoblar": `${res.wrongAnswers} ta`,
+    "Umumiy savollar": res.totalQuestions,
+    "Natija (Foizda)": `${res.scorePercentage}%`,
+    "Sarflangan vaqt": `${res.spentTime} daqiqa`,
+    "Topshirilgan sana": new Date(res.createdAt).toLocaleString()
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, "Imtihon Natijalari");
+
+  worksheet['!cols'] = [
+    { wch: 5 },  { wch: 25 }, { wch: 15 }, { wch: 20 }, 
+    { wch: 15 }, { wch: 15 }, { wch: 15 }, { wch: 15 }, 
+    { wch: 15 }, { wch: 20 }
+  ];
+
+  XLSX.writeFile(workbook, `Imtihon_Natijalari_${new Date().toLocaleDateString()}.xlsx`);
+};
 
   return (
     <div className="space-y-8 text-xl font-sans tracking-wide">
@@ -112,6 +144,14 @@ export default function Tahlil({ myStudents = [], fetchTeacherData, darkMode }) 
             Jami: {myStudents.length} ta o'quvchi
           </span>
         </div>
+        <div className="flex gap-3 items-center mb-4">
+          <button 
+            onClick={exportResultsToExcel}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-xl shadow-md transition-all flex items-center gap-1.5"
+          >
+            📥 Excelga yuklash (.xlsx)
+          </button>
+        </div>
 
         <div className="overflow-x-auto rounded-2xl border border-slate-800/10 dark:border-slate-800">
           <table className="w-full text-left border-collapse">
@@ -123,12 +163,15 @@ export default function Tahlil({ myStudents = [], fetchTeacherData, darkMode }) 
                 <th className="p-4">Sana</th>
                 <th className="p-4 max-w-xs">Xatolar tahlili</th>
               </tr>
+              
             </thead>
+            
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-sm">
               {myStudents.length === 0 ? (
                 <tr>
                   <td colSpan="5" className="p-8 text-center text-xs text-slate-400 font-medium">Hozircha o'quvchilar mavjud emas.</td>
                 </tr>
+                
               ) : (
                 myStudents.map((s) => {
                   const hasScore = s.latestScore;

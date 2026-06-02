@@ -1,48 +1,8 @@
 import React, { useState } from 'react';
-import { db } from '../firebase.js';
-import { collection, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
-import { arrayUnion, doc, updateDoc, collection, addDoc } from 'firebase/firestore';
+import axios from 'axios';
 
-// Savolni ro'yxatga qo'shish tugmasi bosilganda:
-const handleAddOrUpdateQuestion = async () => {
-  if (!quizTitle.trim()) {
-    alert("Avval fan nomini kiriting!");
-    return;
-  }
-
-  const yangiSavol = {
-    savol: savol.trim(),
-    a: a.trim(), b: b.trim(), c: c.trim(), d: d.trim(),
-    javob: javob.toUpperCase(),
-    img: imgBase64 || null
-  };
-
-  try {
-    if (editingQuizId) {
-      // Agar test bazada allaqachon bo'lsa, to'g'ridan-to'g'ri bazadagi massivga qo'shadi
-      const quizRef = doc(db, "quizzes", editingQuizId);
-      await updateDoc(quizRef, {
-        questions: arrayUnion(yangiSavol)
-      });
-    } else {
-      // Agar yangi test bo'lsa, bazada yangi fan ochib savolni srazi yozadi
-      const docRef = await addDoc(collection(db, "quizzes"), {
-        title: quizTitle.trim(),
-        time: Number(quizTime),
-        questions: [yangiSavol]
-      });
-      setEditingQuizId(docRef.id); // Joriy test ID sini saqlab qoladi
-    }
-    
-    alert("Savol muvaffaqiyatli bazaga qo'shildi!");
-    if (fetchTeacherData) fetchTeacherData(); // Ro'yxatni yangilash
-    
-    // Formani tozalash
-    setSavol(""); setA(""); setB(""); setC(""); setD(""); setImgBase64("");
-  } catch (e) {
-    console.error(e);
-  }
-};
+// Backend API manzili (Siz ochgan 5000-port)
+const API_URL = 'http://localhost:5000/api/quizzes';
 
 export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode }) {
   const [quizTitle, setQuizTitle] = useState("");
@@ -58,7 +18,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
   const [d, setD] = useState("");
   const [javob, setJavob] = useState("A");
 
-  // 📝 TAHRIRLASH REJIMI UCHUN STATE'LAR
+  // 📝 TAHRIRLASH REJIMI UCHUN STATE'LAR (MongoDB ID-lari uchun)
   const [editingQuizId, setEditingQuizId] = useState(null); 
   const [editingQuestionIdx, setEditingQuestionIdx] = useState(null); 
 
@@ -87,7 +47,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
       ]
     },
     {
-      title: "Oʻzbekiston Tarixi",
+      title: "Oʻzbekistan Tarixi",
       time: 20,
       questions: [
         { savol: "Amir Temur qachon va qayerda tugʻilgan?", a: "1336-yil, Xoʻja Ilgʻor qishlogʻida", b: "1405-yil, Oʻtrorda", c: "1483-yil, Andijonda", d: "1220-yil, Samarqandda", javob: "A", img: null },
@@ -110,14 +70,31 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
     }
   ];
 
-  // ⚙️ FAST AUTO-UPLOAD FUNKSIYASI
+  // ⚙️ FAST AUTO-UPLOAD FUNKSIYASI (MongoDB uchun)
   const handleAutoUploadTestlar = async () => {
     if(!confirm("Tizimga tayyor 4 ta fanning (20 ta savol) testlarini avtomatik yuklashni xohlaysizmi?")) return;
     try {
       for (const paket of tayyorTestlarPaketlari) {
-        await addDoc(collection(db, "quizzes"), paket);
+        // 1. Avval fanni ochamiz (root yaratish)
+        const rootRes = await axios.post(`${API_URL}/save-root`, {
+          title: paket.title,
+          time: Number(paket.time)
+        });
+        const createdQuizId = rootRes.data.quiz._id;
+
+        // 2. Savollarni bittalab MongoDB ichiga push qilamiz
+        for (const q of paket.questions) {
+          await axios.post(`${API_URL}/add-question`, {
+            quizId: createdQuizId,
+            questionIdx: null,
+            questionData: q
+          });
+        }
+
+        // 3. Test paketini faollashtiramiz
+        await axios.post(`${API_URL}/finalize-quiz`, { quizId: createdQuizId });
       }
-      alert("🚀 4 ta fan testlari bazaga alohida-alohida muvaffaqiyatli yuklandi!");
+      alert("🚀 4 ta fan testlari MongoDB bazasiga muvaffaqiyatli yuklandi!");
       if (fetchTeacherData) fetchTeacherData();
     } catch (err) {
       console.error(err);
@@ -139,8 +116,12 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
     }
   };
 
-  // SAVOL QO'SHISH YOKI RO'YXATDAGINI TAHRIRLASH
-  const handleAddOrUpdateQuestion = () => {
+  // SAVOL QO'SHISH YOKI RO'YXATDAGINI TAHRIRLASH (MongoDB API bilan)
+  const handleAddOrUpdateQuestion = async () => {
+    if (!quizTitle.trim()) {
+      alert("Avval fan nomini kiriting!");
+      return;
+    }
     if (!savol.trim()) {
       alert("Iltimos, avval savol matnini yozing!");
       return;
@@ -160,46 +141,53 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
       javob: javob.toUpperCase() 
     };
 
-    if (editingQuestionIdx !== null) {
-      const updatedQuestions = [...questions];
-      updatedQuestions[editingQuestionIdx] = targetQuestion;
-      setQuestions(updatedQuestions);
-      setEditingQuestionIdx(null);
-    } else {
-      setQuestions([...questions, targetQuestion]);
-    }
+    try {
+      let currentQuizId = editingQuizId;
 
-    setSavol(""); setImgBase64(""); setA(""); setB(""); setC(""); setD(""); setJavob("A");
+      // Agar yangi fan bo'lsa va hali bazada ochilmagan bo'lsa, avval uni yaratamiz
+      if (!currentQuizId) {
+        const rootRes = await axios.post(`${API_URL}/save-root`, {
+          title: quizTitle.trim(),
+          time: Number(quizTime)
+        });
+        currentQuizId = rootRes.data.quiz._id;
+        setEditingQuizId(currentQuizId);
+      }
+
+      // Savolni MongoDB-ga to'g'ridan-to'g'ri qo'shish yoki tahrirlash
+      const res = await axios.post(`${API_URL}/add-question`, {
+        quizId: currentQuizId,
+        questionIdx: editingQuestionIdx,
+        questionData: targetQuestion
+      });
+
+      if (res.data.success) {
+        setQuestions(res.data.quiz.questions);
+        alert(editingQuestionIdx !== null ? "Savol tahrirlandi!" : "Savol muvaffaqiyatli bazaga qo'shildi!");
+        
+        // Formani tozalash
+        setSavol(""); setImgBase64(""); setA(""); setB(""); setC(""); setD(""); setJavob("A");
+        setEditingQuestionIdx(null);
+        if (fetchTeacherData) fetchTeacherData();
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Savolni saqlashda xatolik yuz berdi!");
+    }
   };
 
-  // 💾 BAZAGA SAQLASH YOKI YANGILASH
+  // 💾 BARCHA SAVOLLARNI YAKUNLASH VA HOZIRGI OYNANI TOZALASH
   const handleSaveQuiz = async () => {
     if (!quizTitle.trim() || questions.length === 0) {
       alert("Fan nomini yozing va kamida bitta savol qo'shing!");
       return;
     }
-    if (!quizTime || quizTime <= 0) {
-      alert("Iltimos, test vaqtini kiriting!");
-      return;
-    }
-
     try {
-      const quizData = { 
-        title: quizTitle.trim(), 
-        time: Number(quizTime), 
-        questions 
-      };
+      // Test holatini 'active' ga o'tkazish
+      await axios.post(`${API_URL}/finalize-quiz`, { quizId: editingQuizId });
+      alert("🚀 Test to'liq yakunlandi va tizimda faollashtirildi!");
 
-      if (editingQuizId) {
-        const quizRef = doc(db, "quizzes", editingQuizId);
-        await updateDoc(quizRef, quizData);
-        alert("🔄 Test va vaqti muvaffaqiyatli yangilandi!");
-      } else {
-        await addDoc(collection(db, "quizzes"), quizData);
-        alert("🚀 Yangi test va taymer muvaffaqiyatli saqlandi!");
-      }
-
-      // ⚠️ ARALASHIB KETMASLIGI UCHUN MAYDONLARNI TOʻLIQ TOZALASH
+      // Maydonlarni tozalash
       setQuizTitle("");
       setQuizTime(20);
       setQuestions([]);
@@ -213,8 +201,9 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
     }
   };
 
+  // Bazadagi testni tahrirlash uchun formaga yuklash
   const startEditQuiz = (quiz) => {
-    setEditingQuizId(quiz.id);
+    setEditingQuizId(quiz._id); // MongoDB-da ID '_id' ko'rinishida bo'ladi
     setQuizTitle(quiz.title);
     setQuizTime(quiz.time || 20); 
     setQuestions(quiz.questions || []);
@@ -222,6 +211,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
     setEditingQuestionIdx(null);
   };
 
+  // Savolni tahrirlash uchun formaga yuklash
   const loadQuestionToForm = (idx) => {
     const q = questions[idx];
     setSavol(q.savol);
@@ -230,10 +220,36 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
     setEditingQuestionIdx(idx);
   };
 
-  const deleteQuestionFromList = (idx) => {
-    const filtered = questions.filter((_, i) => i !== idx);
-    setQuestions(filtered);
-    if (editingQuestionIdx === idx) setEditingQuestionIdx(null);
+  // Savolni MongoDB bazasidagi massivdan o'chirish
+  const deleteQuestionFromList = async (idx) => {
+    if (!confirm("Ushbu savolni o'chirmoqchimisiz?")) return;
+    try {
+      const res = await axios.post(`${API_URL}/delete-question`, {
+        quizId: editingQuizId,
+        questionIdx: idx
+      });
+      setQuestions(res.data.quiz.questions);
+      if (editingQuestionIdx === idx) setEditingQuestionIdx(null);
+      if (fetchTeacherData) fetchTeacherData();
+    } catch (err) {
+      console.error(err);
+      alert("Savolni o'chirishda xatolik!");
+    }
+  };
+
+  // Butun test paketini o'chirish
+  const handleDeleteQuiz = async (quizId) => {
+    if(!confirm("Ushbu test paketini butunlay o'chirib tashlamoqchimisiz?")) return;
+    try {
+      await axios.delete(`${API_URL}/${quizId}`);
+      alert("Test muvaffaqiyatli o'chirildi!");
+      if (editingQuizId === quizId) {
+        setQuizTitle(""); setQuizTime(20); setQuestions([]); setEditingQuizId(null);
+      }
+      if (fetchTeacherData) fetchTeacherData();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -268,6 +284,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
                 type="text" 
                 value={quizTitle} 
                 onChange={e => setQuizTitle(e.target.value)} 
+                disabled={editingQuizId !== null}
                 placeholder="Masalan: Ona tili, Matematika..." 
                 className={`w-full rounded-2xl p-4 text-base font-bold border-2 transition-all focus:outline-none ${darkMode ? 'bg-slate-950 border-slate-800 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-indigo-600'}`}
               />
@@ -279,6 +296,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
                 value={quizTime} 
                 min="1"
                 onChange={e => setQuizTime(e.target.value)} 
+                disabled={editingQuizId !== null}
                 placeholder="20" 
                 className={`w-full rounded-2xl p-4 pr-10 text-base font-black border-2 text-center transition-all focus:outline-none ${darkMode ? 'bg-slate-950 border-slate-800 text-amber-500 focus:border-indigo-500' : 'bg-slate-50 border-slate-300 text-indigo-600 focus:border-indigo-600'}`}
               />
@@ -346,7 +364,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
           </div>
 
           <button type="button" onClick={handleAddOrUpdateQuestion} className={`w-full py-4 rounded-2xl font-bold text-base transition mt-6 text-white shadow-md ${editingQuestionIdx !== null ? 'bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700' : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700'}`}>
-            {editingQuestionIdx !== null ? "🔄 JORIY SAVOL O'ZGARISHINI SAQLASH" : `➕ SHU SAVOLNY RO'YXATGA QO'SHISH (${questions.length} ta bo'ldi)`}
+            {editingQuestionIdx !== null ? "🔄 JORIY SAVOL O'ZGARISHINI SAQLASH" : `➕ SHU SAVOLNI RO'YXATGA QO'SHISH (${questions.length} ta bo'ldi)`}
           </button>
         </div>
 
@@ -390,7 +408,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
           <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
             {myQuizzes && myQuizzes.length > 0 ? (
               myQuizzes.map(q => (
-                <div key={q.id} className={`p-4 rounded-2xl flex justify-between items-center border shadow-sm ${editingQuizId === q.id ? 'border-indigo-500 bg-indigo-500/5' : darkMode ? 'bg-slate-950 border-slate-800/60' : 'bg-slate-50 border-slate-200'}`}>
+                <div key={q._id} className={`p-4 rounded-2xl flex justify-between items-center border shadow-sm ${editingQuizId === q._id ? 'border-indigo-500 bg-indigo-500/5' : darkMode ? 'bg-slate-950 border-slate-800/60' : 'bg-slate-50 border-slate-200'}`}>
                   <div>
                     <p className={`font-black text-base ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>📖 {q.title}</p>
                     <div className="flex gap-3 mt-1">
@@ -400,12 +418,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => startEditQuiz(q)} className="text-indigo-500 font-black text-xs p-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-xl">✏️ Edit</button>
-                    <button onClick={async () => {
-                      if(confirm("O'chirilsinmi?")) {
-                        await deleteDoc(doc(db, "quizzes", q.id));
-                        if (fetchTeacherData) fetchTeacherData();
-                      }
-                    }} className="text-rose-500 font-black text-xs p-2 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl">O'chirish</button>
+                    <button onClick={() => handleDeleteQuiz(q._id)} className="text-rose-500 font-black text-xs p-2 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl">O'chirish</button>
                   </div>
                 </div>
               ))
