@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+// 🟢 Firebase Firestore funksiyalari (onSnapshot jonli sinxronizatsiya uchun qo'shildi)
+import { collection, onSnapshot } from 'firebase/firestore';
+import { db } from './firebase'; // Agar xato bersa, '../firebase' deb tekshiring
 
 // Komponentlarni import qilish
 import Tahlil from './Tahlil.jsx';
 import TestTuzish from './TestTuzish.jsx';
 import Oquvchilar from './Oquvchilar.jsx';
 import Arizalar from './Arizalar.jsx'; 
-
-const API_URL = 'http://localhost:5000/api/quizzes';
 
 export default function AdminDashboard({ onLogout, darkMode, setDarkMode }) {
 
@@ -25,38 +25,40 @@ export default function AdminDashboard({ onLogout, darkMode, setDarkMode }) {
     localStorage.setItem("adminActiveTab", activeTab);
   }, [activeTab]);
 
-  // 🔄 MongoDB-dan barcha ma'lumotlarni bir vaqtda qayta yuklash funksiyasi
-  const fetchTeacherData = async () => {
-    try {
-      // 1. Testlarni yuklash
-      const quizRes = await axios.get(`${API_URL}/all`);
-      setQuizzes(quizRes.data);
-
-      // 2. Natijalarni yuklash
-      const resultRes = await axios.get(`${API_URL}/results/all`);
-      setResults(resultRes.data);
-
-      // 3. O'quvchilar ro'yxatini yuklash
-      const studentRes = await axios.get('http://localhost:5000/api/quizzes/students/all');
-      setStudents(studentRes.data);
-    } catch (err) {
-      console.error("MongoDB-dan ma'lumotlarni yuklashda xatolik:", err);
-    }
-  };
-
-  // 🎯 Sahifa ilk bor yuklanganda ma'lumotlarni bazadan olib kelish
+  // 🎯 REAL-TIME JONLI ALOQA (onSnapshot barcha kolleksiyalarni mustaqil kuzatadi)
   useEffect(() => {
-    fetchTeacherData();
-    
-    // 🔥 Har 5 soniyada bazani tekshirib turish (Jonli aloqa effekti):
-    const interval = setInterval(() => {
-      fetchTeacherData();
-    }, 5000);
+    // 1. Quizzes kolleksiyasini jonli eshitish
+    const unsubscribeQuizzes = onSnapshot(collection(db, "quizzes"), (snapshot) => {
+      const quizList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setQuizzes(quizList);
+    }, (err) => console.error("Quizzes yuklashda xato:", err));
 
-    return () => clearInterval(interval);
+    // 2. Results kolleksiyasini jonli eshitish
+    const unsubscribeResults = onSnapshot(collection(db, "results"), (snapshot) => {
+      const resultList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setResults(resultList);
+    }, (err) => console.error("Results yuklashda xato:", err));
+
+    // 3. Students kolleksiyasini jonli eshitish
+    const unsubscribeStudents = onSnapshot(collection(db, "students"), (snapshot) => {
+      const studentList = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setStudents(studentList);
+    }, (err) => console.error("Students yuklashda xato:", err));
+
+    // 🧹 Sahifadan chiqib ketganda barcha listenorlarni (tinglovchilarni) o'chirish
+    return () => {
+      unsubscribeQuizzes();
+      unsubscribeResults();
+      unsubscribeStudents();
+    };
   }, []);
 
-  // Arizasi ko'rib chiqilish kutilayotgan o'quvchilar soni
+  // 💡 Eskidan qolgan propslar xato bermasligi uchun bo'sh funksiya (Real-time rejimda buni chaqirish shart emas)
+  const fetchTeacherData = () => {
+    console.log("Ma'lumotlar real-time yangilanmoqda...");
+  };
+
+  // Arizasi ko'rib chiqilish kutilayotgan o'quvchilar soni (spamStatus === 'pending')
   const pendingCount = students.filter(s => s.spamStatus === 'pending').length;
 
   return (
@@ -87,7 +89,7 @@ export default function AdminDashboard({ onLogout, darkMode, setDarkMode }) {
                   : darkMode ? 'text-slate-400 hover:bg-slate-800/50 hover:text-white' : 'text-slate-600 hover:bg-slate-200/80 hover:text-slate-900'
               }`}
             >
-              📊 TAHLIL V NAtijalar
+              📊 TAHLIL V NATIJALAR
             </button>
             
             <button 
@@ -132,6 +134,7 @@ export default function AdminDashboard({ onLogout, darkMode, setDarkMode }) {
           {/* 3. O'NG CHEKKA: LIGHT/DARK MOD VA CHIQUV PANEL */}
           <div className="flex items-center gap-2.5 shrink-0 md:ml-auto">
             <button 
+              type="button"
               onClick={() => setDarkMode(!darkMode)} 
               className={`p-2 px-3.5 rounded-xl text-xs font-black uppercase tracking-wider border transition-all duration-300 flex items-center gap-1 ${
                 darkMode 
@@ -142,6 +145,7 @@ export default function AdminDashboard({ onLogout, darkMode, setDarkMode }) {
               {darkMode ? '☀️ ' : '🌙 '}
             </button>
             <button 
+              type="button"
               onClick={() => {
                 localStorage.removeItem("adminActiveTab"); // Chiqqanda xotirani tozalash
                 onLogout();
@@ -161,19 +165,26 @@ export default function AdminDashboard({ onLogout, darkMode, setDarkMode }) {
 
       {/* 🏢 AKTIV KONTENT RENDER QISMI */}
       <div className="max-w-7xl mx-auto p-4 md:p-6 mt-2">
-        {activeTab === "tahlil" && <Tahlil myStudents={students} myResults={results} darkMode={darkMode} />}
-        
+        {activeTab === "tahlil" && <Tahlil myStudents={results} darkMode={darkMode} fetchTeacherData={fetchTeacherData} />}        
         {activeTab === "test" && <TestTuzish myQuizzes={quizzes} darkMode={darkMode} fetchTeacherData={fetchTeacherData} />}
         
         {activeTab === "oquvchilar" && (
           <Oquvchilar 
-            myStudents={students}     npm install xlsx
+            myStudents={students}      
             quizzes={quizzes}      
             darkMode={darkMode} 
             fetchTeacherData={fetchTeacherData} 
           />
         )}        
-        {activeTab === "arizalar" && <Arizalar myStudents={students} darkMode={darkMode} fetchTeacherData={fetchTeacherData} />}
+        
+        {/* 🛠 O'ZGARTIRILGAN QISM: Arizalar komponentiga students massivini yuboryapmiz */}
+        {activeTab === "arizalar" && (
+          <Arizalar 
+            myStudents={students} 
+            darkMode={darkMode} 
+            fetchTeacherData={fetchTeacherData} 
+          />
+        )}
       </div>
 
     </div>

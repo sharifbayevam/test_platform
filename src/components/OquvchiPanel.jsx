@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+// 🟢 Firebase Firestore funksiyalari yuklanmoqda (axios butunlay olib tashlandi)
+import { doc, getDoc, collection, getDocs, addDoc, updateDoc } from 'firebase/firestore';
+import { db } from './firebase'; 
+// 💎 Premium Alertlar uchun kutubxona ulandi
+import Swal from 'sweetalert2';
 
 export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
   const [quizzes, setQuizzes] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // Firebase-ga mos ID va statuslarni olish
+  const currentStudentId = currentUser?.id || currentUser?._id;
   const [studentStatus, setStudentStatus] = useState(currentUser?.spamStatus || 'active');
   const [spamCount, setSpamCount] = useState(currentUser?.spamCount || 0);
 
@@ -42,37 +49,62 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
     return saved ? JSON.parse(saved) : null;
   });
 
-  // 🔄 JONLI STATUS REFRESH
+  // ✨ PREMIUM TOAST XABAR FUNKSIYASI
+  const showToast = (title, icon = 'success') => {
+    Swal.fire({
+      title: title,
+      icon: icon,
+      background: darkMode ? '#0f172a' : '#ffffff',
+      color: darkMode ? '#f8fafc' : '#0f172a',
+      confirmButtonColor: '#4f46e5',
+      timer: 3000,
+      timerProgressBar: true
+    });
+  };
+
+  // 🔄 JONLI STATUS REFRESH (FIREBASE FIRESTORE ORQALI)
   useEffect(() => {
-    if (!currentUser?._id) return;
+    if (!currentStudentId) return;
+
     const checkStatus = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/quizzes/students/all');
-        const me = res.data.find(s => s._id === currentUser._id);
-        if (me) {
-          setStudentStatus(me.spamStatus || 'active');
-          setSpamCount(me.spamCount || 0);
+        const studentRef = doc(db, "students", currentStudentId);
+        const studentSnap = await getDoc(studentRef);
+        
+        if (studentSnap.exists()) {
+          const data = studentSnap.data();
+          setStudentStatus(data.spamStatus || 'active');
+          setSpamCount(data.spamCount || 0);
         }
       } catch (err) {
         console.error("Status yuklashda xatolik:", err);
       }
     };
+
     const interval = setInterval(checkStatus, 4000);
     return () => clearInterval(interval);
-  }, [currentUser]);
+  }, [currentStudentId]);
 
-  // 📜 TESTLARNI BACKEND'DAN YUKLASH
+  // 📜 TESTLARNI FIREBASE'DAN YUKLASH
   const loadQuizzes = async () => {
     try {
       setLoading(true);
-      const res = await axios.get('http://localhost:5000/api/quizzes/all');
-      if (currentUser?.allowedSubject) {
-        const filtered = res.data.filter(q => 
-          q.title.toLowerCase().trim() === currentUser.allowedSubject.toLowerCase().trim()
+      const querySnapshot = await getDocs(collection(db, "quizzes"));
+      const allQuizzes = [];
+      
+      querySnapshot.forEach((doc) => {
+        allQuizzes.push({ id: doc.id, ...doc.data() });
+      });
+
+      const allowedSub = currentUser?.ruxsatFan || currentUser?.allowedSubject;
+
+      if (allowedSub) {
+        const filtered = allQuizzes.filter(q => 
+          q.title && q.title.toLowerCase().trim() === allowedSub.toLowerCase().trim()
         );
         setQuizzes(filtered);
       } else {
-        setQuizzes(res.data);
+        setQuizzes(allQuizzes);
       }
     } catch (err) {
       console.error("Testlarni yuklashda xatolik:", err);
@@ -85,7 +117,7 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
     loadQuizzes();
   }, [currentUser]);
 
-  // 💾 JORIY HOLATLAR O'ZGARSA, LOCALSTORAGE'GA SAQLASH
+  // 💾 LOCALSTORAGE SAQLASH EFFEKTI
   useEffect(() => {
     if (activeQuiz) {
       localStorage.setItem("activeQuiz", JSON.stringify(activeQuiz));
@@ -100,32 +132,61 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
     }
   }, [activeQuiz, currentQuestions, currentIndex, answers, testFinished, timeLeft, quizResultSummary]);
 
-  // 🕵️‍♂️ ANTI-CHEAT EFFEKTI
+  // 🕵️‍♂️ ANTI-CHEAT EFFEKTI (💥 SWEETALERT2 INTEGRATSIYASI BILAN)
   useEffect(() => {
-    if (!activeQuiz || testFinished || studentStatus === 'blocked' || studentStatus === 'pending') return;
+    if (!activeQuiz || testFinished || studentStatus === 'blocked' || studentStatus === 'pending' || !currentStudentId) return;
 
     const handleVisibilityChange = async () => {
       if (document.hidden) {
         const nextSpam = spamCount + 1;
         setSpamCount(nextSpam);
 
+        const studentRef = doc(db, "students", currentStudentId);
+
         if (nextSpam >= 3) {
           try {
-            await axios.post(`http://localhost:5000/api/quizzes/students/update-spam/${currentUser._id}`, {
+            await updateDoc(studentRef, {
               spamStatus: 'blocked',
               spamCount: 3
             });
             setStudentStatus('blocked');
+            Swal.close(); // Eski ochiq alert oynalari bo'lsa yopib yuborish
           } catch (e) {
             console.error(e);
           }
         } else {
           try {
-            await axios.post(`http://localhost:5000/api/quizzes/students/update-spam/${currentUser._id}`, {
+            await updateDoc(studentRef, {
               spamStatus: 'active',
               spamCount: nextSpam
             });
-            alert(`⚠️ Ogohlantirish! Test sahifasidan chiqib ketmang! (${nextSpam}/3)`);
+
+            // 🔥 DAXSHATLI VA PREMIUMP OGOHLANTIRISH MODAL OYNASI
+            Swal.fire({
+              icon: 'error',
+              title: `<span style="color: #ef4444; font-family: 'sans-serif'; font-weight: 900;">DIQQAT! QOIDABUZARLIK!</span>`,
+              html: `
+                <div style="font-size: 14px; font-weight: 600; line-height: 1.6; color: ${darkMode ? '#94a3b8' : '#475569'};">
+                  <p>Test sahifasidan boshqa oynaga o'tish taqiqlanadi!</p>
+                  <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); padding: 10px; border-radius: 12px; margin-top: 15px;">
+                    <span style="color: #f43f5e; font-size: 16px; font-weight: 800;">
+                      Ogohlantirishlar: ${nextSpam} / 3
+                    </span>
+                  </div>
+                  <p style="font-size: 11px; color: #94a3b8; margin-top: 12px; font-style: italic;">
+                    * Uchinchi marta sahifadan chiqsangiz tizim avtomat bloklaydi!
+                  </p>
+                </div>
+              `,
+              background: darkMode ? '#0f172a' : '#ffffff',
+              confirmButtonText: 'TUSHUNDIM, TESTGA QAYTISH 🛡️',
+              confirmButtonColor: '#ef4444',
+              allowOutsideClick: false, // Chetga bosib oynani yopib bo'lmaydi!
+              allowEscapeKey: false,
+              backdrop: 'rgba(239, 68, 68, 0.25)', // Orqa fon qizg'ish tusga kiradi
+              showClass: { popup: 'animate__animated animate__headShake' } // Qaltirash effekti
+            });
+
           } catch (e) {
             console.error(e);
           }
@@ -135,7 +196,7 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
 
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [activeQuiz, testFinished, studentStatus, spamCount, currentUser]);
+  }, [activeQuiz, testFinished, studentStatus, spamCount, currentStudentId, darkMode]);
 
   // ⏱️ TAYMER
   useEffect(() => {
@@ -167,7 +228,7 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
     setAnswers({ ...answers, [currentIndex]: option });
   };
 
-  // 🏁 TESTNI YAKUNLASH
+  // 🏁 TESTNI YAKUNLASH VA NATIJANI FIREBASE'GA SAQLASH
   const handleFinishTest = async () => {
     let score = 0;
     let wrongAnswersList = [];
@@ -203,27 +264,42 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
     setQuizResultSummary(summary);
     setTestFinished(true);
 
-    // LocalStorage'ga yakuniy natijani srazi yozish
     localStorage.setItem("testFinished", "true");
     localStorage.setItem("quizResultSummary", JSON.stringify(summary));
 
+    if (currentStudentId) {
+      try {
+        const studentDocRef = doc(db, "students", currentStudentId);
+        await updateDoc(studentDocRef, {
+          subject: activeQuiz.title,
+          percentage: percentage,
+          date: new Date().toLocaleDateString()
+        });
+      } catch (studentErr) {
+        console.error("Students kolleksiyasini yangilashda xato:", studentErr);
+      }
+    }
+
     try {
-      await axios.post('http://localhost:5000/api/quizzes/save-result', {
-        studentId: currentUser._id,
-        quizId: activeQuiz._id,
+      await addDoc(collection(db, "results"), {
+        studentId: currentStudentId,
+        studentName: currentUser?.login || "Noma'lum",
+        quizId: activeQuiz.id || activeQuiz._id,
         quizTitle: activeQuiz.title,
         totalQuestions: currentQuestions.length,
         correctAnswers: score,
         wrongAnswers: currentQuestions.length - score,
         scorePercentage: percentage,
-        spentTime: spentTimeMinutes > 0 ? spentTimeMinutes : 1
+        spentTime: spentTimeMinutes > 0 ? spentTimeMinutes : 1,
+        createdAt: new Date().toISOString()
       });
+      showToast("Test yakunlandi va natijangiz saqlandi!", "success");
     } catch (err) {
       console.error("Natijani saqlashda xatolik:", err);
     }
   };
 
-  // 🔄 BOSH SAHIFAGA QAYTISH (XOTIRANI TOZALASH)
+  // 🔄 BOSH SAHIFAGA QAYTISH
   const handleGoBack = () => {
     localStorage.removeItem("activeQuiz");
     localStorage.removeItem("currentQuestions");
@@ -245,6 +321,7 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
     return `${m}:${s}`;
   };
 
+  // 🔓 BLOKLANGAN YOKI ARIZA HOLATI
   if (studentStatus === 'blocked' || studentStatus === 'pending') {
     return (
       <div className={`flex flex-col items-center justify-center min-h-[70vh] p-6 text-center font-sans tracking-wide transition-colors ${darkMode ? 'text-white' : 'text-slate-900'}`}>
@@ -260,10 +337,12 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
         <div className="flex gap-4 mt-8 w-full max-w-sm">
           {studentStatus === 'blocked' && (
             <button onClick={async () => {
+              if(!currentStudentId) return;
               try {
-                await axios.post(`http://localhost:5000/api/quizzes/students/update-spam/${currentUser._id}`, { spamStatus: 'pending', spamCount });
+                const studentRef = doc(db, "students", currentStudentId);
+                await updateDoc(studentRef, { spamStatus: 'pending' });
                 setStudentStatus('pending');
-                alert("🚀 Arizangiz ustozga yuborildi!");
+                showToast("Arizangiz ustozga yuborildi! 🚀", "success");
               } catch (e) { console.error(e); }
             }} className="flex-1 px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl transition-all">
               🔓 Ustozga ariza yuborish
@@ -279,10 +358,10 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
     <div className={`max-w-4xl mx-auto font-sans tracking-wide p-4 transition-colors ${darkMode ? 'text-white' : 'text-slate-900'}`}>
       
       {/* 🔝 TEPALIK PANEL */}
-      <div className={`flex justify-between items-center p-5 rounded-3xl border mb-6 transition-all ${darkMode ? 'bg-slate-900 border-slate-800 shadow-[0_10px_30px_rgba(0,0,0,0.5)]' : 'bg-white border-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.04)]'}`}>
+      <div className={`flex justify-between items-center p-5 rounded-3xl border mb-6 transition-all ${darkMode ? 'bg-slate-900 border-slate-800 shadow-md' : 'bg-white border-slate-200 shadow-sm'}`}>
         <div>
-          <h2 className="text-lg font-black uppercase">👋 {currentUser?.name || "O'quvchi"}</h2>
-          <p className="text-xs text-slate-400 font-medium">Talaba paneli • ID: {currentUser?.login}</p>
+          <h2 className="text-lg font-black uppercase">👋 {currentUser?.login || "O'quvchi"}</h2>
+          <p className="text-xs text-slate-400 font-medium">Talaba paneli • Fan: {currentUser?.ruxsatFan || "Hamma fanlar"}</p>
         </div>
         <button onClick={() => { handleGoBack(); onLogout(); }} className="px-5 py-2.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white font-bold text-xs rounded-xl transition-all shadow-sm">
           Chiqish
@@ -291,7 +370,7 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
 
       {/* 🗂️ 1-HOLAT: TEST RO'YXATI */}
       {!activeQuiz && (
-        <div className={`p-6 rounded-3xl border transition-all ${darkMode ? 'bg-slate-900 border-slate-800 shadow-[0_15px_35px_rgba(0,0,0,0.4)]' : 'bg-white border-slate-200 shadow-[0_15px_35px_rgba(0,0,0,0.03)]'}`}>
+        <div className={`p-6 rounded-3xl border transition-all ${darkMode ? 'bg-slate-900 border-slate-800 shadow-md' : 'bg-white border-slate-200 shadow-sm'}`}>
           <h3 className="font-black text-xl mb-6 bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent uppercase">📜 Topshirish mumkin bo'lgan imtihonlar</h3>
           {loading ? (
             <p className="text-sm text-slate-400 text-center py-8">Imtihonlar yuklanmoqda...</p>
@@ -300,7 +379,7 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {quizzes.map(q => (
-                <div key={q._id} className={`p-5 rounded-2xl border flex flex-col justify-between transition-all ${darkMode ? 'bg-slate-950 border-slate-800/60 hover:border-indigo-500 shadow-md' : 'bg-slate-50 border-slate-200 hover:border-indigo-600 shadow-sm'}`}>
+                <div key={q.id || q._id} className={`p-5 rounded-2xl border flex flex-col justify-between transition-all ${darkMode ? 'bg-slate-950 border-slate-800/60 hover:border-indigo-500 shadow-md' : 'bg-slate-50 border-slate-200 hover:border-indigo-600 shadow-sm'}`}>
                   <div>
                     <h4 className="font-black text-lg mb-1">📖 {q.title}</h4>
                     <div className="flex gap-3 text-xs font-bold text-slate-400 mb-4">
@@ -321,7 +400,7 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
       {/* ✏️ 2-HOLAT: TEST JARAYONI */}
       {activeQuiz && !testFinished && (
         <div className="space-y-6">
-          <div className={`p-5 rounded-3xl border flex flex-col md:flex-row gap-4 justify-between items-center sticky top-2 z-50 transition-all ${darkMode ? 'bg-slate-900/90 border-slate-800 backdrop-blur-md shadow-[0_15px_30px_rgba(0,0,0,0.5)]' : 'bg-white/90 border-slate-200 backdrop-blur-md shadow-[0_15px_30px_rgba(0,0,0,0.06)]'}`}>
+          <div className={`p-5 rounded-3xl border flex flex-col md:flex-row gap-4 justify-between items-center sticky top-2 z-50 transition-all ${darkMode ? 'bg-slate-900/90 border-slate-800 backdrop-blur-md shadow-md' : 'bg-white/90 border-slate-200 backdrop-blur-md shadow-sm'}`}>
             <div className="flex items-center gap-3">
               <span className="p-2.5 bg-indigo-500/10 text-indigo-500 rounded-xl font-black text-sm">📖 {activeQuiz.title}</span>
               <span className="text-xs font-bold text-slate-400">Savol: {currentIndex + 1}/{currentQuestions.length}</span>
@@ -335,7 +414,7 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
             </div>
           </div>
 
-          <div className={`p-6 rounded-3xl border transition-all ${darkMode ? 'bg-slate-900 border-slate-800 shadow-[0_20px_40px_rgba(0,0,0,0.4)]' : 'bg-white border-slate-200 shadow-[0_20px_40px_rgba(0,0,0,0.03)]'}`}>
+          <div className={`p-6 rounded-3xl border transition-all ${darkMode ? 'bg-slate-900 border-slate-800 shadow-md' : 'bg-white border-slate-200 shadow-sm'}`}>
             <h3 className="font-bold text-xl leading-relaxed mb-6">
               <span className="text-indigo-500 font-black mr-2">№{currentIndex + 1}.</span>
               {currentQuestions[currentIndex]?.savol}
@@ -374,37 +453,37 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
         </div>
       )}
 
-      {/* 🏆 3-HOLAT: TEST YAKUNLANGANDA TAHLIL EKRANI */}
+      {/* 🏆 3-HOLAT: TAHLIL EKRANI */}
       {testFinished && activeQuiz && quizResultSummary && (
         <div className="space-y-6">
-          <div className={`p-8 rounded-3xl border text-center space-y-6 transition-all ${darkMode ? 'bg-slate-900 border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.5)]' : 'bg-white border-slate-200 shadow-[0_20px_50px_rgba(0,0,0,0.04)]'}`}>
+          <div className={`p-8 rounded-3xl border text-center space-y-6 transition-all ${darkMode ? 'bg-slate-900 border-slate-800 shadow-md' : 'bg-white border-slate-200 shadow-sm'}`}>
             <div className="w-20 h-20 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center text-4xl mx-auto shadow-md">🏆</div>
             <div>
               <h3 className="font-black text-2xl uppercase tracking-wide">Imtihon topshirildi!</h3>
-              <p className="text-sm text-slate-400 mt-1">Sizning natijalaringiz quyidagicha shakllandi:</p>
+              <p className="text-sm text-slate-400 mt-1">Sizning natijalaringiz muvaffaqiyatli saqlandi.</p>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto text-center">
-              <div className={`p-4 rounded-2xl border transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 shadow-md' : 'bg-white border-slate-100 shadow-[0_4px_15px_rgba(0,0,0,0.02)]'}`}>
+              <div className={`p-4 rounded-2xl border transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 shadow-md' : 'bg-white border-slate-100 shadow-sm'}`}>
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">To'g'ri</p>
                 <p className="text-2xl font-black text-emerald-500 mt-1">{quizResultSummary.score} / {quizResultSummary.total}</p>
               </div>
-              <div className={`p-4 rounded-2xl border transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 shadow-md' : 'bg-white border-slate-100 shadow-[0_4px_15px_rgba(0,0,0,0.02)]'}`}>
+              <div className={`p-4 rounded-2xl border transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 shadow-md' : 'bg-white border-slate-100 shadow-sm'}`}>
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Xato</p>
                 <p className="text-2xl font-black text-rose-500 mt-1">{quizResultSummary.total - quizResultSummary.score}</p>
               </div>
-              <div className={`p-4 rounded-2xl border transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 shadow-md' : 'bg-white border-slate-100 shadow-[0_4px_15px_rgba(0,0,0,0.02)]'}`}>
+              <div className={`p-4 rounded-2xl border transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 shadow-md' : 'bg-white border-slate-100 shadow-sm'}`}>
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Foiz</p>
                 <p className="text-2xl font-black text-indigo-500 mt-1">{quizResultSummary.percentage}%</p>
               </div>
-              <div className={`p-4 rounded-2xl border transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 shadow-md' : 'bg-white border-slate-100 shadow-[0_4px_15px_rgba(0,0,0,0.02)]'}`}>
+              <div className={`p-4 rounded-2xl border transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 shadow-md' : 'bg-white border-slate-100 shadow-sm'}`}>
                 <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Vaqt</p>
                 <p className="text-2xl font-black text-amber-500 mt-1">{quizResultSummary.spentTime} daq</p>
               </div>
             </div>
           </div>
 
-          <div className={`p-6 rounded-3xl border transition-all ${darkMode ? 'bg-slate-900 border-slate-800 shadow-[0_20px_40px_rgba(0,0,0,0.4)]' : 'bg-white border-slate-200 shadow-[0_20px_40px_rgba(0,0,0,0.03)]'}`}>
+          <div className={`p-6 rounded-3xl border transition-all ${darkMode ? 'bg-slate-900 border-slate-800 shadow-md' : 'bg-white border-slate-200 shadow-sm'}`}>
             <h3 className="font-black text-lg uppercase mb-5 text-rose-500 flex items-center gap-2">
               ❌ Natijalar tahlili ({quizResultSummary.wrongAnswers.length} ta xato)
             </h3>

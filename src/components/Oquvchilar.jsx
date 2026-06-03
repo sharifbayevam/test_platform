@@ -1,211 +1,193 @@
 import React, { useState } from 'react';
-import axios from 'axios';
-import * as XLSX from 'xlsx';
-
-const API_URL = 'http://localhost:5000/api/quizzes/students/create';
+// 🟢 Firebase Firestore funksiyalari ulanmoqda
+import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
+import { db } from './firebase'; 
+// 💎 Premium Alertlar uchun kutubxona
+import Swal from 'sweetalert2';
 
 export default function Oquvchilar({ myStudents = [], quizzes = [], darkMode, fetchTeacherData }) {
-  const [login, setLogin] = useState("");
-  const [password, setPassword] = useState("");
-  const [allowedSubject, setAllowedSubject] = useState("");
+  const [login, setLogin] = useState('');
+  const [password, setPassword] = useState('');
+  const [allowedSubject, setAllowedSubject] = useState('');
 
+  // 🎯 YARATILGAN TESTLARDAN FAN NOMLARINI AVTOMATIK SUG'URIB OLISH (TAKRORLANMAS QILIB)
+  const dynamicSubjects = quizzes && quizzes.length > 0 
+    ? [...new Set(quizzes.map(q => q.title || q.subject).filter(Boolean))]
+    : [];
+
+  // ✨ PREMIUM CUSTOM ALERT STILI (Dark/Light Mode moslashuvchan)
+  const showToast = (title, icon = 'success') => {
+    Swal.fire({
+      title: title,
+      icon: icon,
+      background: darkMode ? '#0f172a' : '#ffffff', // slate-900 yoki white
+      color: darkMode ? '#f8fafc' : '#0f172a',
+      confirmButtonColor: '#4f46e5', // indigo-600
+      timer: 3000,
+      timerProgressBar: true,
+      showClass: { popup: 'animate__animated animate__fadeInUp animate__faster' },
+      hideClass: { popup: 'animate__animated animate__fadeOutDown animate__faster' }
+    });
+  };
+
+  // ➕ YANGI O'QUVCHI QO'SHISH (FIREBASE)
   const handleAddStudent = async (e) => {
     e.preventDefault();
-
     if (!login.trim() || !password.trim() || !allowedSubject) {
-      alert("Iltimos, login, parol va ruxsat etilgan fanni tanlang!");
+      showToast("Iltimos, barcha maydonlarni to'ldiring!", "warning");
+      return;
+    }
+
+    // O'quvchi logini takrorlanmasligini tekshirish
+    const exists = myStudents.some(s => s.login && s.login.toLowerCase() === login.trim().toLowerCase());
+    if (exists) {
+      showToast("Bu loginli o'quvchi allaqachon mavjud!", "error");
       return;
     }
 
     try {
-      const studentData = {
-        login: login,
-        password: password,
-        allowedSubject: allowedSubject
-      };
+      // Yangi talabani Firestore'ga yozish
+      await addDoc(collection(db, "students"), {
+        login: login.trim(),
+        password: password.trim(),
+        allowedSubject: allowedSubject,
+        spamStatus: "active", // active, pending, blocked
+        createdAt: new Date().toISOString()
+      });
 
-      const res = await axios.post(API_URL, studentData);
+      showToast("O'quvchi muvaffaqiyatli qo'shildi! 🚀", "success");
+      setLogin('');
+      setPassword('');
+      setAllowedSubject('');
+      
+      if (fetchTeacherData) fetchTeacherData();
 
-      if (res.data.success) {
-        setLogin("");
-        setPassword("");
-        setAllowedSubject("");
-        fetchTeacherData();
-      }
     } catch (err) {
-      console.error(err);
-      alert("Xatolik: " + (err.response?.data?.error || err.message));
+      console.error("O'quvchi qo'shishda xato:", err);
+      showToast("O'quvchini saqlashda xatolik yuz berdi!", "error");
     }
   };
-  const exportStudentsToExcel = () => {
-  if (!myStudents || myStudents.length === 0) {
-    alert("❌ Eksport qilish uchun o'quvchilar mavjud emas!");
-    return;
-  }
 
-  // Excel uchun ma'lumotlar strukturasini tayyorlash
-  const dataToExport = myStudents.map((student, index) => ({
-    "№": index + 1,
-    "Ism Familiya": student.name,
-    "Login (ID)": student.login,
-    "Parol": student.password || "******", // xavfsizlik uchun yoki ochiq parol
-    "Ruxsat etilgan fan": student.allowedSubject || "Tanlanmagan",
-    "Status": student.spamStatus === 'blocked' ? "Bloklangan" : student.spamStatus === 'pending' ? "Ariza yuborgan" : "Aktiv",
-    "Ogohlantirishlar soni": student.spamCount || 0
-  }));
-
-  // Excel faylini yaratish
-  const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, "O'quvchilar");
-
-  // Ustunlar kengligini chiroyli qilish
-  worksheet['!cols'] = [
-    { wch: 5 },  { wch: 25 }, { wch: 15 }, { wch: 15 }, 
-    { wch: 20 }, { wch: 15 }, { wch: 22 }
-  ];
-
-  // Faylni yuklab olish
-  XLSX.writeFile(workbook, `Oquvchilar_Royxati_${new Date().toLocaleDateString()}.xlsx`);
-
-};
+  // 🗑️ PREMIUM O'QUVCHINI O'CHIRISH (MODAL OYNA)
+  const handleDeleteStudent = async (id) => {
+    Swal.fire({
+      title: "Ishonchingiz komilmi?",
+      text: "Ushbu o'quvchi tizimdan butunlay o'chiriladi!",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Ha, o'chirilsin!",
+      cancelButtonText: "Yo'q, qolsin",
+      background: darkMode ? '#0f172a' : '#ffffff',
+      color: darkMode ? '#f8fafc' : '#0f172a',
+      confirmButtonColor: '#e11d48', // rose-600
+      cancelButtonColor: '#64748b', // slate-500
+    }).then(async (result) => {
+      if (result.isConfirmed) {
+        try {
+          await deleteDoc(doc(db, "students", id));
+          showToast("O'quvchi tizimdan o'chirildi! 🗑️", "success");
+          if (fetchTeacherData) fetchTeacherData();
+        } catch (err) {
+          console.error("O'chirishda xato:", err);
+          showToast("O'quvchini o'chirish imkoni bo'lmadi!", "error");
+        }
+      }
+    });
+  };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      
-      {/* 👤 CHAP QISM: INPUT PANEL */}
-      <div className={`p-6 rounded-2xl border h-fit ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-        <h3 className="text-base font-bold mb-4 flex items-center gap-2">
-          <span>👤 Yangi O'quvchi</span>
-        </h3>
-        
-        <form onSubmit={handleAddStudent} className="space-y-4">
+    <div className="space-y-6">
+      {/* 🔴 1-QISM: O'QUVCHI QO'SHISH FORMASI */}
+      <div className={`p-6 rounded-2xl border transition-all duration-300 ${darkMode ? 'bg-slate-900 border-slate-800 shadow-2xl' : 'bg-white border-slate-200 shadow-sm'}`}>
+        <h3 className="text-sm font-black uppercase tracking-wider mb-4">👤 Yangi O'quvchi Qo'shish</h3>
+        <form onSubmit={handleAddStudent} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div>
-            <label className="text-xs font-bold block mb-1 uppercase tracking-wider text-slate-400">Login:</label>
+            <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">LOGIN</label>
             <input 
-              type="text" 
-              value={login}
-              onChange={(e) => setLogin(e.target.value)}
-              placeholder="Login kiriting"
-              className={`w-full p-3 rounded-xl border text-sm font-semibold transition-all outline-none focus:border-indigo-500 ${
-                darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-              }`}
+              type="text" value={login} onChange={(e) => setLogin(e.target.value)} placeholder="Masalan: surayyo"
+              className={`w-full p-2.5 text-xs rounded-xl border focus:outline-none ${darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-300'}`}
             />
           </div>
-
           <div>
-            <label className="text-xs font-bold block mb-1 uppercase tracking-wider text-slate-400">Parol:</label>
+            <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">PAROL</label>
             <input 
-              type="text" 
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Parol kiriting"
-              className={`w-full p-3 rounded-xl border text-sm font-semibold transition-all outline-none focus:border-indigo-500 ${
-                darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-              }`}
+              type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Parol kiriting"
+              className={`w-full p-2.5 text-xs rounded-xl border focus:outline-none ${darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-300'}`}
             />
           </div>
-
           <div>
-            <label className="text-xs font-bold block mb-1 uppercase tracking-wider text-slate-400">Ruxsat etilgan fan:</label>
+            <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">RUXSAT ETILGAN FAN</label>
             <select 
-              value={allowedSubject}
-              onChange={(e) => setAllowedSubject(e.target.value)}
-              className={`w-full p-3 rounded-xl border text-sm font-semibold outline-none focus:border-indigo-500 ${
-                darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-200 text-slate-900'
-              }`}
+              value={allowedSubject} onChange={(e) => setAllowedSubject(e.target.value)}
+              className={`w-full p-2.5 text-xs rounded-xl border focus:outline-none ${darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-300'}`}
             >
-              <option value="">-- Fanni tanlang --</option>
-              {quizzes && quizzes.length > 0 && quizzes.map((q) => (
-                <option key={q._id} value={q.title}>{q.title}</option>
+              <option value="">Fanni tanlang...</option>
+              {dynamicSubjects.map((subjectName, idx) => (
+                <option key={idx} value={subjectName}>
+                  {subjectName}
+                </option>
               ))}
-           
             </select>
           </div>
-
-          <button 
-            type="submit"
-            className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-xl text-xs uppercase tracking-wider shadow-lg shadow-indigo-600/20 transition-all active:scale-95"
-          >
-            O'quvchini qo'shish 🚀
+          <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-3 px-4 rounded-xl transition active:scale-95">
+            O'QUVCHINI QO'SHISH 🚀
           </button>
         </form>
       </div>
 
-      {/* 👥 O'NG QISM: JADVAL (RO'YXAT) */}
-      <div className="lg:col-span-2">
-        <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-sm font-black uppercase tracking-wider">👥 O'quvchilar ro'yxati</h3>
-            <span className="px-2.5 py-1 text-xs font-black bg-indigo-600/10 text-indigo-400 rounded-lg">
-              Jami: {myStudents.length} ta
-            </span>
-          </div>
-          <div className="flex gap-3 items-center">
-  <button 
-    onClick={exportStudentsToExcel}
-    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-xl shadow-md transition-all flex items-center gap-1.5"
-  >
-    📥 Excelga yuklash (.xlsx)
-  </button>
-  <span className="p-2 bg-indigo-500/10 text-indigo-500 rounded-lg text-xs font-black">
-    Jami: {myStudents.length} ta
-  </span>
-</div>
-
-          {myStudents.length === 0 ? (
-            <p className="text-xs text-slate-500 text-center py-6">Hozircha tizimda o'quvchilar mavjud emas.</p>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-800/60 text-slate-400 uppercase tracking-wider">
-                    <th className="pb-3 font-bold pl-2">Holati</th>
-                    <th className="pb-3 font-bold">Login</th>
-                    <th className="pb-3 font-bold">Parol</th>
-                    <th className="pb-3 font-bold text-right pr-2">Ruxsat etilgan fani</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {myStudents.map((student) => (
-                    <tr 
-                      key={student._id} 
-                      className={`border-b last:border-0 transition-colors ${
-                        student.isOnline 
-                          ? (darkMode ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-emerald-50 border-emerald-100 text-emerald-900') 
-                          : (darkMode ? 'border-slate-800/40 hover:bg-slate-800/20' : 'border-slate-100 hover:bg-slate-50')
-                      }`}
-                    >
-                      {/* KIRGANLARNI AJRATIB KO'RSATISH */}
-                      <td className="py-3.5 pl-2">
-                        {student.isOnline ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500 text-white animate-pulse">
-                            ● KIRGAN
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-500/20 text-slate-400">
-                            ○ Kirmagan
-                          </span>
-                        )}
-                      </td>
-                      
-                      <td className="py-3.5 font-bold text-sm">{student.login}</td>
-                      <td className="py-3.5 font-mono text-slate-400">{student.password}</td>
-                      
-                      <td className="py-3.5 text-right pr-2">
-                        <span className="px-2.5 py-1 rounded-lg bg-indigo-500/10 text-indigo-400 font-black border border-indigo-500/20">
-                          {student.allowedSubject}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+      {/* 🔵 2-QISM: O'QUVCHILAR RO'YXATI JADVALI */}
+      <div className={`p-6 rounded-2xl border transition-all duration-300 ${darkMode ? 'bg-slate-900 border-slate-800 shadow-2xl' : 'bg-white border-slate-200 shadow-sm'}`}>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-sm font-black uppercase tracking-wider">👥 O'quvchilar Ro'yxati</h3>
+          <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${darkMode ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
+            Jami: {myStudents.length} ta o'quvchi
+          </span>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className={`border-b text-[11px] font-black uppercase text-slate-400 ${darkMode ? 'border-slate-800' : 'border-slate-200'}`}>
+                <th className="py-3 px-4">#</th>
+                <th className="py-3 px-4">Login</th>
+                <th className="py-3 px-4">Parol</th>
+                <th className="py-3 px-4">Ruxsat etilgan Fan</th>
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4 text-right">Amal</th>
+              </tr>
+            </thead>
+            <tbody className="text-xs divide-y divide-slate-200/20 dark:divide-slate-800/40">
+              {myStudents.map((student, index) => (
+                <tr key={student.id} className={darkMode ? 'hover:bg-slate-950/40 text-slate-300' : 'hover:bg-slate-50 text-slate-700'}>
+                  <td className="py-3 px-4 text-slate-500">{index + 1}</td>
+                  <td className="py-3 px-4 font-bold text-indigo-400">{student.login}</td>
+                  <td className="py-3 px-4 font-mono">{student.password}</td>
+                  <td className="py-3 px-4">
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 uppercase font-semibold text-[10px]">
+                      {student.allowedSubject}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${student.spamStatus === 'active' ? 'bg-green-500/10 text-green-400' : 'bg-rose-500/10 text-rose-400'}`}>
+                      {student.spamStatus}
+                    </span>
+                  </td>
+                  <td className="py-3 px-4 text-right">
+                    <button onClick={() => handleDeleteStudent(student.id)} className="bg-rose-500/10 hover:bg-rose-500 text-rose-400 hover:text-white px-2 py-1 rounded-lg text-[10px] font-bold transition">
+                      O'chirish
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {myStudents.length === 0 && (
+                <tr>
+                  <td colSpan="6" className="text-center py-6 text-slate-500">Hozircha o'quvchilar mavjud emas.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
-
     </div>
   );
 }

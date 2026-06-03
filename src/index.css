@@ -2,9 +2,3 @@
 @tailwind components;
 @tailwind utilities;
 
-/* index.css ichidagi standart body-ni bizning fonga moslashtiramiz */
-body {
-  background-color: #f8fafc !important; /* Standart oq rangni o'chiradi */
-  margin: 0;
-  padding: 0;
-}
