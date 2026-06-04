@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, where, doc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { GraduationCap, BookOpen, User } from 'lucide-react';
 import { db } from "./components/firebase.js"; 
 
 import OquvchiPanel from './components/OquvchiPanel';
 import AdminDashboard from './components/AdminDashboard.jsx'; 
+import { Award, Stamp, StepBack, StepForwardIcon, StickyNoteX, Unplug } from 'lucide-react';
 
 export default function App() {
   const [role, setRole] = useState(() => localStorage.getItem('userRole') || 'home');
@@ -101,7 +103,7 @@ export default function App() {
     const inputPassword = passwordInput.trim();
 
     if (viewState === 'oqituvchi-login') {
-      if (inputLogin === 'admin' && inputPassword === 'admin8') {
+      if (inputLogin === 'admin' && inputPassword === 'admin') {
         const adminUser = { role: 'admin', login: 'admin' };
         setCurrentUser(adminUser);
         setRole('admin');
@@ -212,7 +214,7 @@ export default function App() {
 
   // 🎨 DYNAMIC PREMIUM STYLES (DARK / LIGHT MANTIQLI)
   const styles = {
-    bg: darkMode ? 'linear-gradient(135deg, #090d16 0%, #111827 100%)' : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
+    bg: darkMode ? 'linear-gradient(135deg, #131c31 0%, #030e25 100%)' : 'linear-gradient(135deg, #17406055 0%, #6cabf7 100%)',
     textMain: darkMode ? 'text-white' : 'text-slate-900',
     textSub: darkMode ? 'text-slate-400' : 'text-slate-600',
     card: darkMode 
@@ -230,7 +232,7 @@ export default function App() {
         onClick={() => setDarkMode(!darkMode)} 
         className={`absolute top-6 right-6 p-3 rounded-xl border transition-all duration-200 shadow-md ${darkMode ? 'bg-slate-900/80 border-slate-800 text-amber-400 hover:bg-slate-800' : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-100'}`}
       >
-        {darkMode ? '☀️ Light' : '🌙 Dark'}
+        {darkMode ? '☀️ ' : '🌙'}
       </button>
 
       {/* 🏡 1. ASOSIY IKKI KARTALI OYNA */}
@@ -241,12 +243,12 @@ export default function App() {
             <p className={`text-sm ${styles.textSub}`}>Xavfsiz va shaxsiy login parollarga asoslangan o'quv platformasi.</p>
           </div>
 
-          <div className="space-y-6 text-left">
+          <div className="space-y-6 text-left    ">
             {/* O'qituvchi Kabineti */}
-            <div onClick={() => setViewState('oqituvchi-login')} className={styles.card}>
-              <div className="flex items-start gap-4">
-                <div className="p-3 bg-indigo-600 rounded-xl text-white text-xl">👥</div>
-                <div className="space-y-1">
+            <div onClick={() => setViewState('oqituvchi-login')} className= {styles.card}>
+              <div className="flex items-start gap-5">
+                <div className="p-3 bg-indigo-600 rounded-xl text-white text-sm "> <Award></Award></div>
+                <div className="space-y-12" >
                   <h3 className="text-lg font-bold">O'qituvchi Kabineti</h3>
                   <p className={`text-xs ${styles.textSub}`}>O'z parolingizni qo'yib kirish, testlar va o'quvchilar qo'shish.</p>
                 </div>
@@ -255,10 +257,10 @@ export default function App() {
 
             {/* O'quvchi Maydoni */}
             <div onClick={() => setViewState('oquvchi-login')} className={styles.card}>
-              <div className="flex items-start gap-4">
-                <div className="p-3 bg-emerald-600 rounded-xl text-white text-xl">🔖</div>
-                <div className="space-y-1">
-                  <h3 className="text-lg font-bold">O'quvchi Maydoni</h3>
+              <div className="flex items-start gap-6">
+                <div className="p-3 bg-blue-600 rounded-xl text-white text-sm"><GraduationCap size={22}/></div>
+                <div className="space-y-12">
+                  <h3 className="text-lg font-bold ">O'quvchi Maydoni</h3>
                   <p className={`text-xs ${styles.textSub}`}>Ustoz bergan maxsus login orqali kirib vaqtli testlarni topshirish.</p>
                 </div>
               </div>
