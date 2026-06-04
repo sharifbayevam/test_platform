@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 // 🟢 Firebase Firestore funksiyalari (onSnapshot jonli sinxronizatsiya uchun qo'shildi)
 import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from './firebase'; // Agar xato bersa, '../firebase' deb tekshiring
+import { BookAIcon, BookTypeIcon, ExternalLink, HomeIcon, HouseIcon, LampCeilingIcon, LucideAArrowDown, LucideGraduationCap, LucideLogs, LucidePackageOpen, LucidePanda, LucideRadar, LucideSquareArrowLeft, LucideSquareArrowRightExit, LucideSquaresSubtract, LucideTextSelect, TestTube2 } from 'lucide-react';
 
 // Komponentlarni import qilish
 import Tahlil from './Tahlil.jsx';
@@ -73,9 +74,9 @@ export default function AdminDashboard({ onLogout, darkMode, setDarkMode }) {
         <div className="w-full max-w-[1400px] mx-auto px-6 py-3.5 flex flex-col md:flex-row justify-between items-center gap-4">
           
           {/* 1. CHAP CHEKKA: LOGO */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0"> <BookTypeIcon size={25} className='bg-blue-600 color-white'/>
             <h1 className="text-lg font-black uppercase tracking-wider bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent">
-              🎓 EDU TEST PANEL
+             EDU TEST PANEL
             </h1>
           </div>
           
@@ -89,7 +90,7 @@ export default function AdminDashboard({ onLogout, darkMode, setDarkMode }) {
                   : darkMode ? 'text-slate-400 hover:bg-slate-800/50 hover:text-white' : 'text-slate-600 hover:bg-slate-200/80 hover:text-slate-900'
               }`}
             >
-              📊 TAHLIL V NATIJALAR
+              <LucideSquaresSubtract size={16} /> TAHLIL V NATIJALAR
             </button>
             
             <button 
@@ -100,7 +101,7 @@ export default function AdminDashboard({ onLogout, darkMode, setDarkMode }) {
                   : darkMode ? 'text-slate-400 hover:bg-slate-800/50 hover:text-white' : 'text-slate-600 hover:bg-slate-200/80 hover:text-slate-900'
               }`}
             >
-              📝 TEST TUZISH
+              <LucideTextSelect size={16} /> TEST TUZISH
             </button>
             
             <button 
@@ -111,7 +112,7 @@ export default function AdminDashboard({ onLogout, darkMode, setDarkMode }) {
                   : darkMode ? 'text-slate-400 hover:bg-slate-800/50 hover:text-white' : 'text-slate-600 hover:bg-slate-200/80 hover:text-slate-900'
               }`}
             >
-              👥 O'QUVCHILAR
+             <LucideGraduationCap size={16} />  O'QUVCHILAR
             </button>
 
             <button 
@@ -122,18 +123,14 @@ export default function AdminDashboard({ onLogout, darkMode, setDarkMode }) {
                   : darkMode ? 'bg-amber-500/10 text-amber-400 hover:bg-amber-500/20' : 'bg-amber-50 text-amber-600 border border-amber-200/60 hover:bg-amber-100/80'
               }`}
             >
-              <span>📩 ARIZALAR</span>
+              <span> <LucidePackageOpen size={16} /> ARIZALAR</span>
               {pendingCount > 0 && (
                 <span className="h-5 w-5 bg-rose-500 text-white rounded-full flex items-center justify-center text-[10px] font-black animate-bounce">
                   {pendingCount}
                 </span>
               )}
             </button>
-          </div>
-
-          {/* 3. O'NG CHEKKA: LIGHT/DARK MOD VA CHIQUV PANEL */}
-          <div className="flex items-center gap-2.5 shrink-0 md:ml-auto">
-            <button 
+                   <button 
               type="button"
               onClick={() => setDarkMode(!darkMode)} 
               className={`p-2 px-3.5 rounded-xl text-xs font-black uppercase tracking-wider border transition-all duration-300 flex items-center gap-1 ${
@@ -144,20 +141,27 @@ export default function AdminDashboard({ onLogout, darkMode, setDarkMode }) {
             >
               {darkMode ? '☀️ ' : '🌙 '}
             </button>
-            <button 
+                     <button 
               type="button"
               onClick={() => {
                 localStorage.removeItem("adminActiveTab"); // Chiqqanda xotirani tozalash
                 onLogout();
               }} 
-              className={`px-3 py-2 text-sm font-black uppercase tracking-wider rounded-xl shadow-md transition-all duration-200 active:scale-95 ${
+              className={`px-1 py-1 text-sm font-black uppercase tracking-wider rounded-xl shadow-md transition-all duration-200 active:scale-95 ${
                 darkMode 
                   ? 'bg-blue-950 text-white hover:bg-blue-900 border border-blue-800' 
-                  : 'bg-slate-500 hover:bg-indigo-600 text-white shadow-rose-500/20'
+                  : 'bg-slate-500 hover:bg-indigo-600 text-white shadow-red-500/20'
               }`}
             >
-              Chiqish
+               <LucideSquareArrowRightExit size={24} />
             </button>
+          </div>
+
+          {/* 3. O'NG CHEKKA: LIGHT/DARK MOD VA CHIQUV PANEL */}
+          <div className="flex items-center gap-2.5 shrink-0 md:ml-auto">
+       
+   
+          
           </div>
 
         </div>

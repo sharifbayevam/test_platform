@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, query, where, doc, updateDoc, onSnapshot } from 'firebase/firestore';
-import { GraduationCap, BookOpen, User } from 'lucide-react';
+import { GraduationCap } from 'lucide-react';
 import { db } from "./components/firebase.js"; 
 
 import OquvchiPanel from './components/OquvchiPanel';

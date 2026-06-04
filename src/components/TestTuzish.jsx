@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 // 🟢 Firebase Firestore funksiyalari va ulanish yo'li
 import { doc, setDoc, addDoc, collection, deleteDoc } from 'firebase/firestore';
 import { db } from './firebase'; // src/ papkasidagi firebase.js ga yo'l
+import { BookAlert, BookMarked, BookmarkX, BoxIcon, BoxSelectIcon, Edit, TimelineIcon, TimerReset, Trash2 } from 'lucide-react';
 
 export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode }) {
   const [quizTitle, setQuizTitle] = useState("");
@@ -234,16 +235,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
           <h3 className="font-black text-2xl bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent uppercase">
             {editingQuizId ? "✏️ Testni Tahrirlash" : "📝 Yangi Test Kreator"}
           </h3>
-          
-          {!editingQuizId && (
-            <button 
-              type="button"
-              onClick={handleAutoUploadTestlar}
-              className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-md transition-all active:scale-95 animate-pulse"
-            >
-              🚀 4 TA FANNI AVTO QO'SHISH
-            </button>
-          )}
+         
         </div>
         
         <div className="mb-6">
@@ -281,7 +273,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
                 {editingQuestionIdx !== null ? `Savol matnini to'g'rilash (№ ${editingQuestionIdx + 1}):` : 'Savol Matni:'}
               </label>
               {editingQuestionIdx !== null && (
-                <button onClick={() => { setEditingQuestionIdx(null); setSavol(""); setImgBase64(""); setA(""); setB(""); setC(""); setD(""); }} className="text-xs text-amber-500 font-bold underline">Tahrirdan chiqish</button>
+                <button onClick={() => { setEditingQuestionIdx(null); setSavol(""); setImgBase64("");  setA(""); setB(""); setC(""); setD(""); }} className="text-xs text-amber-500 font-bold underline">Tahrirdan chiqish</button>
               )}
             </div>
             
@@ -351,7 +343,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
         
         <div className={`p-6 rounded-3xl border transition-all duration-300 ${darkMode ? 'bg-slate-900 border-slate-800 shadow-md' : 'bg-white border-slate-200 shadow-sm'}`}>
           <h3 className="font-black text-sm text-indigo-500 uppercase tracking-wider mb-4">
-            📋 Ushbu Paket ichidagi savollar ({questions.length} ta)
+             Ushbu Paket ichidagi savollar ({questions.length} ta)
           </h3>
           <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
             {questions.map((q, idx) => (
@@ -367,21 +359,21 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
         </div>
 
         <div className={`p-6 rounded-3xl border transition-all duration-300 ${darkMode ? 'bg-slate-900 border-slate-800 shadow-md' : 'bg-white border-slate-200 shadow-sm'}`}>
-          <h3 className="font-black text-sm text-slate-400 uppercase tracking-wider mb-4">📦 Bazadagi barcha testlar</h3>
+          <h3 className="font-black text-sm text-slate-400 uppercase tracking-wider mb-4"><BoxIcon /> Bazadagi barcha testlar</h3>
           <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
             {myQuizzes && myQuizzes.length > 0 ? (
               myQuizzes.map(q => (
                 <div key={q.id || q._id} className={`p-4 rounded-2xl flex justify-between items-center border shadow-sm ${editingQuizId === (q.id || q._id) ? 'border-indigo-500 bg-indigo-500/5' : darkMode ? 'bg-slate-950 border-slate-800/60' : 'bg-slate-50 border-slate-200'}`}>
                   <div>
-                    <p className={`font-black text-base ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>📖 {q.title}</p>
+                    <p className={`font-black text-base ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}> <BookMarked size={18} color='green'/> {q.title}</p>
                     <div className="flex gap-3 mt-1">
                       <span className="text-xs text-indigo-500 font-bold">{q.questions?.length || 0} ta savol</span>
-                      <span className="text-xs text-amber-500 font-bold">⏱️ {q.time || 20} daqiqa</span>
+                      <span className="text-xs text-amber-500 font-bold"><TimerReset size={15} color='blue'/> {q.time || 20} daqiqa</span>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => startEditQuiz(q)} className="text-indigo-500 font-black text-xs p-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-xl">✏️ Edit</button>
-                    <button onClick={() => handleDeleteQuiz(q.id || q._id)} className="text-rose-500 font-black text-xs p-2 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl">O'chirish</button>
+                    <button onClick={() => startEditQuiz(q)} className="text-indigo-500 font-black text-xs p-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-xl"> <Edit size={15}/> Edit</button>
+                    <button onClick={() => handleDeleteQuiz(q.id || q._id)} className="text-rose-500 font-black text-xs p-2 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl"> <Trash2 size={15}/> O'chirish</button>
                   </div>
                 </div>
               ))

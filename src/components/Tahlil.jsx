@@ -1,3 +1,4 @@
+import { LucideAArrowDown, LucideActivity, LucideAnchor, LucidePercentSquare, LucideSaveAll, LucideUser2, LucideUsersRound } from 'lucide-react';
 import React from 'react';
 import * as XLSX from 'xlsx';
 
@@ -63,8 +64,8 @@ export default function Tahlil({ myStudents = [], darkMode }) {
         </div>
         
         <div className="mb-4">
-          <button onClick={exportResultsToExcel} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-xl shadow-md">
-            📥 Excelga yuklash (.xlsx)
+          <button onClick={exportResultsToExcel} className="px-4 py-2 bg-purple-500 hover:bg-emerald-700 text-white font-bold text-xs uppercase rounded-xl shadow-md">
+            <LucideSaveAll size={16} className="inline-block mr-2" /> Excelga yuklash (.xlsx)
           </button>
         </div>
 
@@ -135,12 +136,12 @@ export default function Tahlil({ myStudents = [], darkMode }) {
         {/* 1. Umumiy Sinf Ko'rsatkichi */}
         <div className={`mb-6 p-4 rounded-2xl flex items-center justify-between border ${darkMode ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50 border-slate-100'}`}>
           <div>
-            <h4 className={`text-sm font-black uppercase ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>Umumiy Sinf O'zlashtirishi</h4>
+            <h4 className={`text-sm font-black uppercase ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}> <LucideUsersRound size={16} className="inline-block mr-2" /> Umumiy Sinf O'zlashtirishi</h4>
             <p className="text-xs text-slate-400 mt-1">Barcha fanlar va urinishlarning o'rtacha qiymati</p>
           </div>
           <div className="text-right">
             <span className={`text-3xl font-black ${averagePercent >= 70 ? 'text-emerald-500' : 'text-amber-500'}`}>
-              {averagePercent}%
+              {averagePercent} <LucidePercentSquare size={20} className="inline-block ml-1" />
             </span>
           </div>
         </div>
@@ -157,7 +158,7 @@ export default function Tahlil({ myStudents = [], darkMode }) {
               return (
                 <div key={subj} className="space-y-2">
                   <div className="flex justify-between items-center text-xs font-bold uppercase tracking-wide">
-                    <span className={`${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>📖 {subj} <span className="text-slate-400 font-normal lowercase">({count} ta urinish)</span></span>
+                    <span className={`${darkMode ? 'text-slate-700' : 'text-slate-500'}`}> <LucideActivity size={16} className="inline-block mr-2 bg-blue-400" /> {subj} <span className="text-slate-400 font-normal lowercase">({count} ta urinish)</span></span>
                     <span className={avg >= 70 ? 'text-emerald-500' : 'text-amber-500'}>{avg}%</span>
                   </div>
                   

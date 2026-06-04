@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 // 🟢 Firebase Firestore funksiyalari yuklanmoqda (axios butunlay olib tashlandi)
 import { doc, getDoc, collection, getDocs, addDoc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase'; 
+import { BackpackIcon } from 'lucide-react';
 // 💎 Premium Alertlar uchun kutubxona ulandi
 import Swal from 'sweetalert2';
 
@@ -345,10 +346,10 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
                 showToast("Arizangiz ustozga yuborildi! 🚀", "success");
               } catch (e) { console.error(e); }
             }} className="flex-1 px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl transition-all">
-              🔓 Ustozga ariza yuborish
+              Ustozga ariza yuborish
             </button>
           )}
-          <button onClick={onLogout} className={`flex-1 px-6 py-4 font-bold text-xs uppercase rounded-2xl transition shadow-md ${darkMode ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-700'}`}>Chiqish</button>
+          <button onClick={onLogout} className={`flex-1 px-6 py-4 font-bold text-xs uppercase rounded-2xl transition shadow-md ${darkMode ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-700'}`}> Chiqish</button>
         </div>
       </div>
     );
@@ -360,7 +361,7 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
       {/* 🔝 TEPALIK PANEL */}
       <div className={`flex justify-between items-center p-5 rounded-3xl border mb-6 transition-all ${darkMode ? 'bg-slate-900 border-slate-800 shadow-md' : 'bg-white border-slate-200 shadow-sm'}`}>
         <div>
-          <h2 className="text-lg font-black uppercase">👋 {currentUser?.login || "O'quvchi"}</h2>
+          <h2 className="text-lg font-black uppercase"> {currentUser?.login || "O'quvchi"} </h2>
           <p className="text-xs text-slate-400 font-medium">Talaba paneli • Fan: {currentUser?.ruxsatFan || "Hamma fanlar"}</p>
         </div>
         <button onClick={() => { handleGoBack(); onLogout(); }} className="px-5 py-2.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white font-bold text-xs rounded-xl transition-all shadow-sm">
@@ -371,7 +372,7 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
       {/* 🗂️ 1-HOLAT: TEST RO'YXATI */}
       {!activeQuiz && (
         <div className={`p-6 rounded-3xl border transition-all ${darkMode ? 'bg-slate-900 border-slate-800 shadow-md' : 'bg-white border-slate-200 shadow-sm'}`}>
-          <h3 className="font-black text-xl mb-6 bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent uppercase">📜 Topshirish mumkin bo'lgan imtihonlar</h3>
+          <h3 className="font-black text-xl mb-6 bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent uppercase"> Topshirish mumkin bo'lgan imtihonlar</h3>
           {loading ? (
             <p className="text-sm text-slate-400 text-center py-8">Imtihonlar yuklanmoqda...</p>
           ) : quizzes.length === 0 ? (
@@ -381,7 +382,7 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
               {quizzes.map(q => (
                 <div key={q.id || q._id} className={`p-5 rounded-2xl border flex flex-col justify-between transition-all ${darkMode ? 'bg-slate-950 border-slate-800/60 hover:border-indigo-500 shadow-md' : 'bg-slate-50 border-slate-200 hover:border-indigo-600 shadow-sm'}`}>
                   <div>
-                    <h4 className="font-black text-lg mb-1">📖 {q.title}</h4>
+                    <h4 className="font-black text-lg mb-1"> <BackpackIcon /> {q.title}</h4>
                     <div className="flex gap-3 text-xs font-bold text-slate-400 mb-4">
                       <span>❓ {q.questions?.length || 0} ta savol</span>
                       <span className="text-amber-500">⏱️ {q.time || 20} daqiqa</span>

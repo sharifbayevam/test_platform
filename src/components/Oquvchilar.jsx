@@ -4,6 +4,7 @@ import { collection, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import { db } from './firebase'; 
 // 💎 Premium Alertlar uchun kutubxona
 import Swal from 'sweetalert2';
+import { LucideGuitar, BookOpen, LucidePiano, LucideListCheck, LucidePilcrow, LucidePillBottle, LucideImagePlus, LucideSaveAll, LucideSchool2, LucideLineStyle, LucidePlane, LucidePlusCircle } from 'lucide-react';
 
 export default function Oquvchilar({ myStudents = [], quizzes = [], darkMode, fetchTeacherData }) {
   const [login, setLogin] = useState('');
@@ -99,12 +100,12 @@ export default function Oquvchilar({ myStudents = [], quizzes = [], darkMode, fe
     <div className="space-y-6">
       {/* 🔴 1-QISM: O'QUVCHI QO'SHISH FORMASI */}
       <div className={`p-6 rounded-2xl border transition-all duration-300 ${darkMode ? 'bg-slate-900 border-slate-800 shadow-2xl' : 'bg-white border-slate-200 shadow-sm'}`}>
-        <h3 className="text-sm font-black uppercase tracking-wider mb-4">👤 Yangi O'quvchi Qo'shish</h3>
+        <h3 className="text-sm font-black uppercase tracking-wider"><BookOpen size={22} /> Yangi O'quvchi Qo'shish</h3>
         <form onSubmit={handleAddStudent} className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div>
             <label className="text-[10px] font-bold uppercase text-slate-400 block mb-1">LOGIN</label>
             <input 
-              type="text" value={login} onChange={(e) => setLogin(e.target.value)} placeholder="Masalan: surayyo"
+              type="text" value={login} onChange={(e) => setLogin(e.target.value)} placeholder="Login kiriting"
               className={`w-full p-2.5 text-xs rounded-xl border focus:outline-none ${darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-300'}`}
             />
           </div>
@@ -121,7 +122,7 @@ export default function Oquvchilar({ myStudents = [], quizzes = [], darkMode, fe
               value={allowedSubject} onChange={(e) => setAllowedSubject(e.target.value)}
               className={`w-full p-2.5 text-xs rounded-xl border focus:outline-none ${darkMode ? 'bg-slate-950 border-slate-800 text-white' : 'bg-slate-50 border-slate-300'}`}
             >
-              <option value="">Fanni tanlang...</option>
+              <option value=""> +Fanni tanlang... </option>
               {dynamicSubjects.map((subjectName, idx) => (
                 <option key={idx} value={subjectName}>
                   {subjectName}
@@ -129,8 +130,8 @@ export default function Oquvchilar({ myStudents = [], quizzes = [], darkMode, fe
               ))}
             </select>
           </div>
-          <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-3 px-4 rounded-xl transition active:scale-95">
-            O'QUVCHINI QO'SHISH 🚀
+          <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold py-3 px-4 rounded-xl transition active:scale-95 align-self-start flex items-center gap-1 justify-center">
+            O'QUVCHINI QO'SHISH <LucidePlusCircle size={16} />
           </button>
         </form>
       </div>
@@ -138,7 +139,7 @@ export default function Oquvchilar({ myStudents = [], quizzes = [], darkMode, fe
       {/* 🔵 2-QISM: O'QUVCHILAR RO'YXATI JADVALI */}
       <div className={`p-6 rounded-2xl border transition-all duration-300 ${darkMode ? 'bg-slate-900 border-slate-800 shadow-2xl' : 'bg-white border-slate-200 shadow-sm'}`}>
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-sm font-black uppercase tracking-wider">👥 O'quvchilar Ro'yxati</h3>
+          <h3 className="text-sm font-black uppercase tracking-wider"><LucideListCheck size={22} /> O'quvchilar Ro'yxati</h3>
           <span className={`px-3 py-1 rounded-full text-[11px] font-bold ${darkMode ? 'bg-indigo-500/10 text-indigo-400' : 'bg-indigo-50 text-indigo-600'}`}>
             Jami: {myStudents.length} ta o'quvchi
           </span>

@@ -2,6 +2,8 @@ import React from 'react';
 // 🟢 Firebase Firestore funksiyalari ulanmoqda
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase';
+import { LockIcon, BellDot } from 'lucide-react';
+import { BlockReason } from 'firebase/ai';
 
 export default function Arizalar({ myStudents = [], darkMode, fetchTeacherData }) {
   
@@ -50,7 +52,7 @@ export default function Arizalar({ myStudents = [], darkMode, fetchTeacherData }
       {/* 📬 1-QISM: KUTILAYOTGAN ARIZALAR */}
       <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
         <h3 className="text-sm font-black uppercase tracking-wider mb-4 text-amber-500">
-          📩 Kutilayotgan Arizalar ({pendingStudents.length} ta)
+       <BellDot/>  Kutilayotgan Arizalar ({pendingStudents.length} ta)
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -97,7 +99,7 @@ export default function Arizalar({ myStudents = [], darkMode, fetchTeacherData }
       {/* 🚫 2-QISM: BLOKLANGANLAR RO'YXATI */}
       <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
         <h3 className="text-sm font-black uppercase tracking-wider mb-4 text-rose-500">
-          🚫 Bloklangan Akkauntlar ({blockedStudents.length} ta)
+           <LockIcon/>  Bloklangan Akkauntlar ({blockedStudents.length} ta)
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full text-left">
@@ -118,7 +120,7 @@ export default function Arizalar({ myStudents = [], darkMode, fetchTeacherData }
                       onClick={() => handleApproveSpam(student.id)} 
                       className="bg-indigo-600 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition"
                     >
-                      Blokdan yechish 🔓
+                      Blokdan yechish
                     </button>
                   </td>
                 </tr>
