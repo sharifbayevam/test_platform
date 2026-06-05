@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-// 🟢 Firebase Firestore funksiyalari yuklanmoqda (axios butunlay olib tashlandi)
+// 🟢 Firebase Firestore funksiyalari yuklanmoqda
 import { doc, getDoc, collection, getDocs, addDoc, updateDoc } from 'firebase/firestore';
 import { db } from './firebase'; 
-import { BackpackIcon } from 'lucide-react';
+// 🛠 Lucide ikonkalari to'g'rilandi (Edit ikonasi olindi)
+import { Edit } from 'lucide-react';
 // 💎 Premium Alertlar uchun kutubxona ulandi
 import Swal from 'sweetalert2';
 
@@ -133,7 +134,7 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
     }
   }, [activeQuiz, currentQuestions, currentIndex, answers, testFinished, timeLeft, quizResultSummary]);
 
-  // 🕵️‍♂️ ANTI-CHEAT EFFEKTI (💥 SWEETALERT2 INTEGRATSIYASI BILAN)
+  // 🕵️‍♂️ ANTI-CHEAT EFFEKTI
   useEffect(() => {
     if (!activeQuiz || testFinished || studentStatus === 'blocked' || studentStatus === 'pending' || !currentStudentId) return;
 
@@ -151,7 +152,7 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
               spamCount: 3
             });
             setStudentStatus('blocked');
-            Swal.close(); // Eski ochiq alert oynalari bo'lsa yopib yuborish
+            Swal.close();
           } catch (e) {
             console.error(e);
           }
@@ -162,7 +163,6 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
               spamCount: nextSpam
             });
 
-            // 🔥 DAXSHATLI VA PREMIUMP OGOHLANTIRISH MODAL OYNASI
             Swal.fire({
               icon: 'error',
               title: `<span style="color: #ef4444; font-family: 'sans-serif'; font-weight: 900;">DIQQAT! QOIDABUZARLIK!</span>`,
@@ -182,10 +182,10 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
               background: darkMode ? '#0f172a' : '#ffffff',
               confirmButtonText: 'TUSHUNDIM, TESTGA QAYTISH 🛡️',
               confirmButtonColor: '#ef4444',
-              allowOutsideClick: false, // Chetga bosib oynani yopib bo'lmaydi!
+              allowOutsideClick: false,
               allowEscapeKey: false,
-              backdrop: 'rgba(239, 68, 68, 0.25)', // Orqa fon qizg'ish tusga kiradi
-              showClass: { popup: 'animate__animated animate__headShake' } // Qaltirash effekti
+              backdrop: 'rgba(239, 68, 68, 0.25)',
+              showClass: { popup: 'animate__animated animate__headShake' }
             });
 
           } catch (e) {
@@ -345,8 +345,8 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
                 setStudentStatus('pending');
                 showToast("Arizangiz ustozga yuborildi! 🚀", "success");
               } catch (e) { console.error(e); }
-            }} className="flex-1 px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl transition-all">
-              Ustozga ariza yuborish
+            }} className="flex-1 px-6 py-4 bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black text-xs uppercase tracking-widest rounded-2xl shadow-xl transition-all flex items-center justify-center gap-2">
+              <Edit size={18} /> Ustozga ariza yuborish
             </button>
           )}
           <button onClick={onLogout} className={`flex-1 px-6 py-4 font-bold text-xs uppercase rounded-2xl transition shadow-md ${darkMode ? 'bg-slate-800 text-white' : 'bg-slate-200 text-slate-700'}`}> Chiqish</button>
@@ -360,9 +360,12 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
       
       {/* 🔝 TEPALIK PANEL */}
       <div className={`flex justify-between items-center p-5 rounded-3xl border mb-6 transition-all ${darkMode ? 'bg-slate-900 border-slate-800 shadow-md' : 'bg-white border-slate-200 shadow-sm'}`}>
-        <div>
-          <h2 className="text-lg font-black uppercase"> {currentUser?.login || "O'quvchi"} </h2>
-          <p className="text-xs text-slate-400 font-medium">Talaba paneli • Fan: {currentUser?.ruxsatFan || "Hamma fanlar"}</p>
+        <div className="flex items-center gap-2">
+          <Edit size={20} className="text-indigo-500" />   
+          <div>
+            <h2 className="text-lg font-black uppercase"> {currentUser?.login || "O'quvchi"} </h2>
+            <p className="text-xs text-slate-400 font-medium">Talaba paneli • Fan: {currentUser?.ruxsatFan || "Hamma fanlar"}</p>
+          </div>
         </div>
         <button onClick={() => { handleGoBack(); onLogout(); }} className="px-5 py-2.5 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white font-bold text-xs rounded-xl transition-all shadow-sm">
           Chiqish
@@ -372,17 +375,17 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
       {/* 🗂️ 1-HOLAT: TEST RO'YXATI */}
       {!activeQuiz && (
         <div className={`p-6 rounded-3xl border transition-all ${darkMode ? 'bg-slate-900 border-slate-800 shadow-md' : 'bg-white border-slate-200 shadow-sm'}`}>
-          <h3 className="font-black text-xl mb-6 bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent uppercase"> Topshirish mumkin bo'lgan imtihonlar</h3>
+          <h3 className="font-black text-xl mb-6 bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent uppercase">📜 Topshirish mumkin bo'lgan imtihonlar</h3>
           {loading ? (
             <p className="text-sm text-slate-400 text-center py-8">Imtihonlar yuklanmoqda...</p>
           ) : quizzes.length === 0 ? (
-            <p className="text-sm text-slate-400 text-center py-8">Hozircha siz uchun faol testlar mavjud emas.</p>
+            <p className="text-sm text-slate-400 text-center py-8">Hozircha siz uchun faol testlar meshallari mavjud emas.</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {quizzes.map(q => (
                 <div key={q.id || q._id} className={`p-5 rounded-2xl border flex flex-col justify-between transition-all ${darkMode ? 'bg-slate-950 border-slate-800/60 hover:border-indigo-500 shadow-md' : 'bg-slate-50 border-slate-200 hover:border-indigo-600 shadow-sm'}`}>
                   <div>
-                    <h4 className="font-black text-lg mb-1"> <BackpackIcon /> {q.title}</h4>
+                    <h4 className="font-black text-lg mb-1">📖 {q.title}</h4>
                     <div className="flex gap-3 text-xs font-bold text-slate-400 mb-4">
                       <span>❓ {q.questions?.length || 0} ta savol</span>
                       <span className="text-amber-500">⏱️ {q.time || 20} daqiqa</span>
@@ -493,32 +496,41 @@ export default function OquvchiPanel({ currentUser, onLogout, darkMode }) {
               <p className="text-sm text-emerald-500 text-center py-6 font-bold bg-emerald-500/5 rounded-2xl border border-emerald-500/20">Tabriklaymiz! Birorta ham xato qilmadingiz! 💯</p>
             ) : (
               <div className="space-y-5">
-                {quizResultSummary.wrongAnswers.map((item, index) => (
-                  <div key={index} className={`p-5 rounded-2xl border-2 transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 shadow-sm' : 'bg-slate-50 border-slate-200 shadow-sm'}`}>
-                    <p className="font-bold text-base mb-3">
-                      <span className="text-rose-500 font-black mr-1">#{index + 1}</span> {item.savol}
-                    </p>
-                    {item.img && (
-                      <div className="mb-4 max-w-xs rounded-xl overflow-hidden border shadow-sm">
-                        <img src={item.img} alt="Xato savol" className="object-contain max-h-32" />
-                      </div>
-                    )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 text-sm">
-                      <div className="p-3 rounded-xl bg-rose-500/5 border border-rose-500/20 text-rose-500 font-semibold shadow-sm">
-                        ❌ Sizning javobingiz: <span className="font-black uppercase">{item.studentJavob}</span> 
-                        <p className={`text-xs mt-1 font-medium ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                          ({item.variants[item.studentJavob.toLowerCase()] || "Belgilanmagan"})
-                        </p>
-                      </div>
-                      <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-emerald-500 font-semibold shadow-sm">
-                        ✅ To'g'ri javob: <span className="font-black uppercase">{item.togriJavob}</span>
-                        <p className={`text-xs mt-1 font-medium ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                          ({item.variants[item.togriJavob.toLowerCase()] || ""})
-                        </p>
+                {quizResultSummary.wrongAnswers.map((item, index) => {
+                  // 🟢 Mantiqiy xavfsiz o'zgaruvchilar yaratildi (Crash xavfi yo'q qilindi)
+                  const sKey = (item.studentJavob && item.studentJavob !== "Belgilanmagan") ? item.studentJavob.toLowerCase() : null;
+                  const tKey = item.togriJavob ? item.togriJavob.toLowerCase() : null;
+                  
+                  const studentOptionText = sKey ? item.variants?.[sKey] : "Belgilanmagan";
+                  const correctOptionText = tKey ? item.variants?.[tKey] : "";
+
+                  return (
+                    <div key={index} className={`p-5 rounded-2xl border-2 transition-all ${darkMode ? 'bg-slate-950 border-slate-800/80 shadow-sm' : 'bg-slate-50 border-slate-200 shadow-sm'}`}>
+                      <p className="font-bold text-base mb-3">
+                        <span className="text-rose-500 font-black mr-1">#{index + 1}</span> {item.savol}
+                      </p>
+                      {item.img && (
+                        <div className="mb-4 max-w-xs rounded-xl overflow-hidden border shadow-sm">
+                          <img src={item.img} alt="Xato savol" className="object-contain max-h-32" />
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 text-sm">
+                        <div className="p-3 rounded-xl bg-rose-500/5 border border-rose-500/20 text-rose-500 font-semibold shadow-sm">
+                          ❌ Sizning javobingiz: <span className="font-black uppercase">{item.studentJavob}</span> 
+                          <p className={`text-xs mt-1 font-medium ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            ({studentOptionText})
+                          </p>
+                        </div>
+                        <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/20 text-emerald-500 font-semibold shadow-sm">
+                          ✅ To'g'ri javob: <span className="font-black uppercase">{item.togriJavob}</span>
+                          <p className={`text-xs mt-1 font-medium ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            ({correctOptionText})
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
