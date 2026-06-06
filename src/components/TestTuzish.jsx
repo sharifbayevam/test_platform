@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 // 🟢 Firebase Firestore funksiyalari va ulanish yo'li
 import { doc, setDoc, addDoc, collection, deleteDoc } from 'firebase/firestore';
 import { db } from './firebase'; // src/ papkasidagi firebase.js ga yo'l
-import { BookAlert, BookMarked, BookmarkX, BoxIcon, BoxSelectIcon, Edit, TimelineIcon, TimerReset, Trash2 } from 'lucide-react';
+import { BookAlert, BookMarked, BookmarkX, Box, BoxSelect, Edit, Timer, Trash2, Sparkles, OctagonPauseIcon, ThermometerSun, Telescope } from 'lucide-react';
 
 export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode }) {
   const [quizTitle, setQuizTitle] = useState("");
@@ -21,6 +21,75 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
   // 📝 TAHRIRLASH REJIMI UCHUN STATE'LAR
   const [editingQuizId, setEditingQuizId] = useState(null); 
   const [editingQuestionIdx, setEditingQuestionIdx] = useState(null); 
+
+  // ✨ AI TAVSIYALARI UCHUN STATE'LAR
+  const [aiSuggestions, setAiSuggestions] = useState([]);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  // ⏱️ DEBOUNCE: Fan nomini emas, SAVOL matnini kuzatadi!
+  useEffect(() => {
+    if (savol.trim().length < 2 || editingQuestionIdx !== null) {
+      setAiSuggestions([]);
+      return;
+    }
+
+    const delayDebounceFn = setTimeout(() => {
+      generateAiQuestions(savol.trim());
+    }, 100);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [savol, quizTitle, editingQuestionIdx]);
+
+  // 🌐 BACKEND SERVERGA AI SO'ROVINI YUBORISH FUNKSIYASI
+  const generateAiQuestions = async (savolMatni) => {
+    try {
+      setAiLoading(true);
+      const response = await fetch('http://localhost:5000/api/quiz/generate-ai', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          savolMatni: savolMatni,
+          quizTitle: quizTitle
+        })
+      });
+
+      const info = await response.json();
+
+      if (response.ok && info && !info.error) {
+        // Agar backend bitta obyekt qaytarsa, uni array formatiga o'rab yuklaymiz
+        setAiSuggestions(Array.isArray(info) ? info : [info]);
+      } else {
+        console.error("Backend AI xatoligi:", info.error || "Noma'lum xatolik");
+        setAiSuggestions([]);
+      }
+    } catch (error) {
+      console.error("Backend server bilan bog'lanishda xatolik yuz berdi:", error);
+      setAiSuggestions([]);
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+ // ➕ AI TAKLIF ETGAN TESTNI INPUT FORMALARIGA YUKLASH
+  const handleAddAiQuestion = (suggestedQ) => {
+    // Ma'lumotlarni to'g'ridan-to'g'ri input holatlariga (state) yozamiz
+    setSavol(suggestedQ.savol || "");
+    setA(suggestedQ.a || "");
+    setB(suggestedQ.b || "");
+    setC(suggestedQ.c || "");
+    setD(suggestedQ.d || "");
+    
+    // To'g'ri javob harfini moslash (masalan: 'A', 'B', 'C', 'D')
+    if (suggestedQ.javob) {
+      setJavob(suggestedQ.javob.toUpperCase());
+    }
+
+    // preview-dan olib tashlash (ixtiyoriy, agar tavsiyalar ro'yxatidan o'chib ketishi kerak bo'lsa)
+    setAiSuggestions(aiSuggestions.filter(q => q.savol !== suggestedQ.savol));
+    
+  };
 
   // 📦 AVTOMATIK TOʻLDIRISH UCHUN TAYYOR 4 TA FAN TESTLARI
   const tayyorTestlarPaketlari = [
@@ -45,34 +114,12 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
         { savol: "Uchburchakning ichki burchaklari yigʻindisi necha gradusga teng?", a: "90°", b: "180°", c: "360°", d: "270°", javob: "B", img: null },
         { savol: "25 sonining kvadrati nechaga teng?", a: "125", b: "525", c: "625", d: "225", javob: "C", img: null }
       ]
-    },
-    {
-      title: "Oʻzbekistan Tarixi",
-      time: 20,
-      questions: [
-        { savol: "Amir Temur qachon va qayerda tugʻilgan?", a: "1336-yil, Xoʻja Ilgʻor qishlogʻida", b: "1405-yil, Oʻtrorda", c: "1483-yil, Andijonda", d: "1220-yil, Samarqandda", javob: "A", img: null },
-        { savol: "Buyuk Ipak yoʻli qaysi davrlarda xalqaro savdo yoʻliga aylangan?", a: "Miloddan avvalgi II asr", b: "Milodiy V asr", c: "Milodiy X asr", d: "Miloddan avvalgi V asr", javob: "A", img: null },
-        { savol: "'Al-Qonun fit-tibb' (Tibbiyot qonunlari) asari muallifi kim?", a: "Abu Rayhon Beruniy", b: "Abu Ali ibn Sino", c: "Al-Xorazmiy", d: "Mirzo Ulugʻbek", javob: "B", img: null },
-        { savol: "Oʻzbekistan Respublikasining Konstitutsiyasi qachon qabul qilingan?", a: "1991-yil 31-avgust", b: "1992-yil 8-dekabr", c: "1993-yil 1-sentabr", d: "1990-yil 20-iyun", javob: "B", img: null },
-        { savol: "Quyidagilardan qaysi biri dunyodagi eng qadimgi shaharlardan biri hisoblanadi?", a: "Toshkent", b: "Samarqand", c: "Fargʻona", d: "Navoiy", javob: "B", img: null }
-      ]
-    },
-    {
-      title: "Ingliz tili (English)",
-      time: 15,
-      questions: [
-        { savol: "Choose the correct form: 'She ___ to school every day.'", a: "go", b: "goes", c: "going", d: "gone", javob: "B", img: null },
-        { savol: "What is the past tense of the verb 'BUY'?", a: "Buyed", b: "Bought", c: "Buying", d: "Buys", javob: "B", img: null },
-        { savol: "Find the synonym of the word 'BEAUTIFUL'.", a: "Ugly", b: "Pretty", c: "Sad", d: "Angry", javob: "B", img: null },
-        { savol: "Fill in the blank: 'There is ___ apple on the table.'", a: "a", b: "an", c: "the", d: "some", javob: "B", img: null },
-        { savol: "Which one is an antonym for 'HOT'?", a: "Warm", b: "Cold", c: "Fire", d: "High", javob: "B", img: null }
-      ]
     }
   ];
 
-  // ⚙️ FAST AUTO-UPLOAD FUNKSIYASI (FIREBASE TALQINI)
+  // ⚙️ FAST AUTO-UPLOAD FUNKSIYASI
   const handleAutoUploadTestlar = async () => {
-    if(!confirm("Tizimga tayyor 4 ta fanning (20 ta savol) testlarini avtomatik yuklashni xohlaysizmi?")) return;
+    if(!confirm("Tizimga tayyor testlarni avtomatik yuklashni xohlaysizmi?")) return;
     try {
       for (const paket of tayyorTestlarPaketlari) {
         await addDoc(collection(db, "quizzes"), {
@@ -82,7 +129,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
           createdAt: new Date().toISOString()
         });
       }
-      alert("🚀 4 ta fan testlari Firebase bazasiga muvaffaqiyatli yuklandi!");
+      alert("🚀 Testlar Firebase bazasiga muvaffaqiyatli yuklandi!");
       if (fetchTeacherData) fetchTeacherData();
     } catch (err) {
       console.error(err);
@@ -161,11 +208,9 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
       };
 
       if (editingQuizId) {
-        // Tahrirlanayotgan testni ID orqali yangilash
         await setDoc(doc(db, "quizzes", editingQuizId), quizData, { merge: true });
         alert("🚀 Test o'zgarishlari muvaffaqiyatli yangilandi!");
       } else {
-        // Yangi hujjat qo'shish
         await addDoc(collection(db, "quizzes"), {
           ...quizData,
           createdAt: new Date().toISOString()
@@ -178,6 +223,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
       setQuestions([]);
       setEditingQuizId(null);
       setEditingQuestionIdx(null);
+      setAiSuggestions([]);
       
       if (fetchTeacherData) fetchTeacherData();
     } catch (e) { 
@@ -193,6 +239,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
     setQuestions(quiz.questions || []);
     setSavol(""); setImgBase64(""); setA(""); setB(""); setC(""); setD(""); setJavob("A");
     setEditingQuestionIdx(null);
+    setAiSuggestions([]);
   };
 
   const loadQuestionToForm = (idx) => {
@@ -235,7 +282,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
           <h3 className="font-black text-2xl bg-gradient-to-r from-indigo-500 to-purple-600 bg-clip-text text-transparent uppercase">
             {editingQuizId ? "✏️ Testni Tahrirlash" : "📝 Yangi Test Kreator"}
           </h3>
-         
+        
         </div>
         
         <div className="mb-6">
@@ -246,7 +293,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
                 type="text" 
                 value={quizTitle} 
                 onChange={e => setQuizTitle(e.target.value)} 
-                placeholder="Masalan: Ona tili, Matematika..." 
+                placeholder="Fan nomini kiriting..." 
                 className={`w-full rounded-2xl p-4 text-base font-bold border-2 transition-all focus:outline-none ${darkMode ? 'bg-slate-950 border-slate-800 text-white focus:border-indigo-500' : 'bg-slate-50 border-slate-300 text-slate-900 focus:border-indigo-600'}`}
               />
             </div>
@@ -264,6 +311,46 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
             </div>
           </div>
         </div>
+
+        {/* 🔮 AI TAXMINIY TESTLAR TAVSIYASI */}
+        {savol.trim().length >= 5 && editingQuestionIdx === null && (
+          <div className={`p-5 mb-6 rounded-2xl border-2 border-dashed transition-all ${darkMode ? 'bg-indigo-950/20 border-indigo-500/40' : 'bg-indigo-50/50 border-indigo-600/30'}`}>
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-xs font-black uppercase text-indigo-500 flex items-center gap-1.5 animate-pulse">
+                <Sparkles size={14} /> AI Tavsiyaviy Savollar
+              </span>
+              {aiLoading && <span className="text-xs text-amber-500 font-bold">AI testlar o'ylamoqda... <Telescope size={14} /></span>}
+            </div>
+
+            {aiSuggestions.length === 0 && !aiLoading && (
+              <p className="text-xs text-slate-400 italic">Savolga mos testlar qidirilmoqda...</p>
+            )}
+
+            <div className="space-y-3">
+              {aiSuggestions.map((item, idx) => (
+                <div key={idx} className={`p-3 rounded-xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-3 text-xs ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+                  <div className="flex-1">
+                    <p className={`font-bold mb-1 ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}>❓ {item.savol}</p>
+                    <div className="grid grid-cols-2 gap-x-4 opacity-75 text-[11px]">
+                      <span>A: {item.a}</span>
+                      <span>B: {item.b}</span>
+                      <span>C: {item.c}</span>
+                      <span>D: {item.d}</span>
+                    </div>
+                    <p className="text-emerald-500 font-bold mt-1 text-[11px]">To'g'ri javob: {item.javob}</p>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => handleAddAiQuestion(item)}
+                    className="p-2 px-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl whitespace-nowrap text-[11px] shadow transition active:scale-95"
+                  >
+                    ➕ Ro'yxatga qo'shish
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         
         <div className={`p-6 rounded-2xl border-2 transition-all ${darkMode ? 'bg-slate-950/40 border-slate-800/80' : 'bg-slate-50 border-slate-200'}`}>
           
@@ -281,7 +368,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
               <textarea 
                 value={savol} 
                 onChange={e => setSavol(e.target.value)} 
-                placeholder="Savol matnini bu yerga yozing..." 
+                placeholder="Savol matnini bu yerga yozing (AI ishlashi uchun kamida 5 ta harf kiriting)..." 
                 className={`w-full rounded-2xl p-4 pr-14 text-lg font-medium border-2 h-24 resize-none focus:outline-none ${darkMode ? 'bg-slate-900 border-slate-800 text-white focus:border-indigo-500' : 'bg-white border-slate-300 text-slate-900 focus:border-indigo-600'}`}
               />
               <label className="absolute right-3 bottom-3 flex items-center justify-center p-2.5 rounded-xl cursor-pointer bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition-all">
@@ -328,7 +415,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
 
         <div className="flex gap-4 mt-6">
           {editingQuizId && (
-            <button onClick={() => { setEditingQuizId(null); setQuizTitle(""); setQuizTime(20); setQuestions([]); setEditingQuestionIdx(null); }} className="w-1/3 bg-slate-500 text-white py-5 rounded-2xl font-bold text-sm shadow-md">
+            <button onClick={() => { setEditingQuizId(null); setQuizTitle(""); setQuizTime(20); setQuestions([]); setEditingQuestionIdx(null); setAiSuggestions([]); }} className="w-1/3 bg-slate-500 text-white py-5 rounded-2xl font-bold text-sm shadow-md">
               Bekor Qilish
             </button>
           )}
@@ -343,7 +430,7 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
         
         <div className={`p-6 rounded-3xl border transition-all duration-300 ${darkMode ? 'bg-slate-900 border-slate-800 shadow-md' : 'bg-white border-slate-200 shadow-sm'}`}>
           <h3 className="font-black text-sm text-indigo-500 uppercase tracking-wider mb-4">
-             Ushbu Paket ichidagi savollar ({questions.length} ta)
+              Ushbu Paket ichidagi savollar ({questions.length} ta)
           </h3>
           <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
             {questions.map((q, idx) => (
@@ -359,21 +446,27 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
         </div>
 
         <div className={`p-6 rounded-3xl border transition-all duration-300 ${darkMode ? 'bg-slate-900 border-slate-800 shadow-md' : 'bg-white border-slate-200 shadow-sm'}`}>
-          <h3 className="font-black text-sm text-slate-400 uppercase tracking-wider mb-4"><BoxIcon /> Bazadagi barcha testlar</h3>
+          <h3 className="font-black text-sm text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Box size={16} /> Bazadagi barcha testlar
+          </h3>
           <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
             {myQuizzes && myQuizzes.length > 0 ? (
               myQuizzes.map(q => (
                 <div key={q.id || q._id} className={`p-4 rounded-2xl flex justify-between items-center border shadow-sm ${editingQuizId === (q.id || q._id) ? 'border-indigo-500 bg-indigo-500/5' : darkMode ? 'bg-slate-950 border-slate-800/60' : 'bg-slate-50 border-slate-200'}`}>
                   <div>
-                    <p className={`font-black text-base ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}> <BookMarked size={18} color='green'/> {q.title}</p>
+                    <p className={`font-black text-base flex items-center gap-1.5 ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}> 
+                      <BookMarked size={18} className="text-emerald-500"/> {q.title}
+                    </p>
                     <div className="flex gap-3 mt-1">
                       <span className="text-xs text-indigo-500 font-bold">{q.questions?.length || 0} ta savol</span>
-                      <span className="text-xs text-amber-500 font-bold"><TimerReset size={15} color='blue'/> {q.time || 20} daqiqa</span>
+                      <span className="text-xs text-amber-500 font-bold flex items-center gap-1">
+                        <Timer size={14} className="text-blue-500"/> {q.time || 20} daqiqa
+                      </span>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button onClick={() => startEditQuiz(q)} className="text-indigo-500 font-black text-xs p-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-xl"> <Edit size={15}/> Edit</button>
-                    <button onClick={() => handleDeleteQuiz(q.id || q._id)} className="text-rose-500 font-black text-xs p-2 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl"> <Trash2 size={15}/> O'chirish</button>
+                    <button onClick={() => startEditQuiz(q)} className="text-indigo-500 font-black text-xs p-2 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-xl flex items-center gap-1"> <Edit size={13}/> Edit</button>
+                    <button onClick={() => handleDeleteQuiz(q.id || q._id)} className="text-rose-500 font-black text-xs p-2 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-xl flex items-center gap-1"> <Trash2 size={13}/> O'chirish</button>
                   </div>
                 </div>
               ))

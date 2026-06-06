@@ -10,6 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.106.2",
     "@tailwindcss/postcss": "^4.3.0",
     "axios": "^1.16.1",
@@ -21,6 +22,7 @@
     "lucide-react": "^1.17.0",
     "mammoth": "^1.12.0",
     "mongoose": "^9.6.3",
+    "openai": "^6.42.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "sweetalert2": "^11.26.25",
