@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 // 🟢 Firebase Firestore funksiyalari va ulanish yo'li
-import { doc, setDoc, addDoc, collection, deleteDoc } from 'firebase/firestore';
+import { doc, setDoc, addDoc, collection, deleteDoc, QueryConstraint } from 'firebase/firestore';
 import { db } from './firebase'; // src/ papkasidagi firebase.js ga yo'l
-import { BookAlert, BookMarked, BookmarkX, Box, BoxSelect, Edit, Timer, Trash2, Sparkles, OctagonPauseIcon, ThermometerSun, Telescope } from 'lucide-react';
+import { BookAlert, BookMarked, BookmarkX, Box, BoxSelect, Edit, Timer, Trash2, Sparkles, OctagonPauseIcon, ThermometerSun, Telescope, FileQuestion } from 'lucide-react';
 
 export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode }) {
   const [quizTitle, setQuizTitle] = useState("");
@@ -331,7 +331,7 @@ const generateAiQuestions = async (savolMatni) => {
               {aiSuggestions.map((item, idx) => (
                 <div key={idx} className={`p-3 rounded-xl border flex flex-col md:flex-row justify-between items-start md:items-center gap-3 text-xs ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
                   <div className="flex-1">
-                    <p className={`font-bold mb-1 ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}><BookAlert /> {item.savol}</p>
+                    <p className={`font-bold mb-1 ${darkMode ? 'text-slate-200' : 'text-slate-800'}`}><FileQuestion /> {item.savol}</p>
                     <div className="grid grid-cols-2 gap-x-4 opacity-75 text-[11px]">
                       <span>A: {item.a}</span>
                       <span>B: {item.b}</span>
