@@ -5,9 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "start": "npm run together",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "together": "concurrently \"nodemon server.js\" \"npm run dev --prefix ../test_platform-backend\""
+
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

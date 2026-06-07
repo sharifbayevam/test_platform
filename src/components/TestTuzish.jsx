@@ -44,7 +44,9 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
   const generateAiQuestions = async (savolMatni) => {
     try {
       setAiLoading(true);
-      const response = await fetch('http://localhost:5000/api/quiz/generate-ai', {
+      
+      // 🟢 JONLI RENDER BACKEND MANZILI INTEGRATSIYA QILINDI
+      const response = await fetch('https://edu-test-backend-production.onrender.com/api/quiz/generate-ai', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
