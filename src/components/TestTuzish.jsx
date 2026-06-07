@@ -40,22 +40,21 @@ export default function TestTuzish({ myQuizzes = [], fetchTeacherData, darkMode 
     return () => clearTimeout(delayDebounceFn);
   }, [savol, quizTitle, editingQuestionIdx]);
 
-  // 🌐 BACKEND SERVERGA AI SO'ROVINI YUBORISH FUNKSIYASI
-  const generateAiQuestions = async (savolMatni) => {
-    try {
-      setAiLoading(true);
-      
-      // 🟢 JONLI RENDER BACKEND MANZILI INTEGRATSIYA QILINDI
-      const response = await fetch('https://edu-test-backend-production.onrender.com/api/quiz/generate-ai', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          savolMatni: savolMatni,
-          quizTitle: quizTitle
-        })
-      });
+const generateAiQuestions = async (savolMatni) => {
+  try {
+    setAiLoading(true);
+    
+    // 🔥 To'g'ri unikal Render backend manzili joylashtirildi:
+    const response = await fetch('https://edu-test-backend-4dcv.onrender.com/api/quiz/generate-ai', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        savolMatni: savolMatni,
+        quizTitle: quizTitle
+      })
+    });
 
       const info = await response.json();
 
