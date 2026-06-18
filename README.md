@@ -1,5 +1,7 @@
 # 📚 Onlayn Test Platformasi (Edu Test)
 
+Loyiha holati: Ushbu loyiha xususiy oʻquv markazi buyurtmasiga asosan, oʻquvchilarning bilimini masofadan baholash tizimini avtomatlashtirish uchun ishlab chiqilgan va muvaffaqiyatli topshirilgan.
+
 Maktablar va oʻquv markazlari uchun moʻljallangan, imtihonlarni avtomatlashtirilgan tarzda oʻtkazishga yordam beradigan maxsus veb-tizim.
 
 ---
